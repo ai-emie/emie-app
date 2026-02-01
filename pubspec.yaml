@@ -1,0 +1,72 @@
+name: emie
+description: Emie AI App
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ------------------------------
+  # LOCALIZATION (Sprache)
+  # ------------------------------
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # ------------------------------
+  # STATE MANAGEMENT
+  # ------------------------------
+  provider: ^6.1.2
+
+  # ------------------------------
+  # NETWORKING
+  # ------------------------------
+  dio: ^5.4.0
+
+  # ------------------------------
+  # UTILS
+  # ------------------------------
+  intl: ^0.20.2
+  uuid: ^4.2.1
+
+  flutter_markdown: ^0.6.23
+
+  # ------------------------------
+  # AUDIO (für Voice später)
+  # ------------------------------
+  flutter_sound: ^9.2.13               # Aufnahme
+  permission_handler: ^11.1.0          # Mikrofon-Berechtigungen
+  #record: ^5.1.0                       # Alternative Recorder
+
+  # ------------------------------
+  # UI / DESIGN
+  # ------------------------------
+  google_fonts: ^6.1.0
+  animations: ^2.0.8
+
+  # ------------------------------
+  # SOCIAL LOGIN
+  # ------------------------------
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/icons/
+    - assets/images/
+    - assets/images/
