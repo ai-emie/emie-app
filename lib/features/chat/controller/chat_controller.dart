@@ -46,6 +46,17 @@ class ChatController extends ChangeNotifier {
   bool get isLoadingHistory => _isLoadingHistory;
   String? get error => _error;
 
+    // ----------------------------------------------
+    // DAILY WELCOME
+    // ----------------------------------------------
+    Future<String> getDailyWelcome() async {
+      try {
+      return await _repository.getDailyWelcome();
+      } catch (_) {
+        return 'Schön, dass du da bist. Womit soll ich dir heute helfen?';
+      }
+    }
+
   // ----------------------------------------------
   // INIT / LOAD
   // ----------------------------------------------

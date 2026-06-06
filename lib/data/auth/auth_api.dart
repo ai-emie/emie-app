@@ -96,7 +96,7 @@ class AuthApi {
   }
 
   // -------------------------------------------
-  // • Apple Login (Backend später)
+  // • Apple Login
   //    Backend: POST /v1/auth/apple
   // -------------------------------------------
   Future<TokenPair> loginWithApple({
@@ -105,20 +105,20 @@ class AuthApi {
     final res = await _dio.post(
       '/v1/auth/apple',
       data: {
-        'identity_token': identityToken,
+        'id_token': identityToken,
       },
     );
 
-    return TokenPair.fromJson(res.data as Map<String, dynamic>);
+  return TokenPair.fromJson(res.data as Map<String, dynamic>);
   }
 
   // -------------------------------------------
   // • Forgot Password
-  //    Backend: POST /v1/auth/forgot-password
+  //    Backend: POST /v1/auth/password/reset/start
   // -------------------------------------------
   Future<void> requestPasswordReset({required String email}) async {
     await _dio.post(
-      '/v1/auth/forgot-password',
+      '/v1/auth/password/reset/start',
       data: {'email': email},
     );
   }

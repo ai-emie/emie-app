@@ -12,6 +12,13 @@ class ChatRepository {
 
   final ChatApi _api;
 
+    // ------------------------------
+    // Daily Welcome
+    // ------------------------------
+    Future<String> getDailyWelcome() {
+      return _api.getDailyWelcome();
+    }
+
   // ------------------------------
   // Brain v2
   // ------------------------------

@@ -52,4 +52,3 @@ class Env {
     defaultValue: '',
   );
 }
-

@@ -4,15 +4,27 @@
 // ===============================================
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+
+// ===============================================
+// INTERNAL IMPORTS
+// ===============================================
 
 import 'state/session_store.dart';
+
 import 'features/auth/controller/auth_controller.dart';
 import 'features/auth/presentation/screens/auth_screen.dart';
+
 import 'features/chat/controller/chat_controller.dart';
 
+import 'features/main/presentation/screens/main_shell.dart';
+
 import 'core/localization/app_localizations.dart';
+
+// ===============================================
+// APP
+// ===============================================
 
 class EmieApp extends StatelessWidget {
   const EmieApp({super.key});
@@ -21,26 +33,48 @@ class EmieApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: SessionStore.instance),
-        ChangeNotifierProvider(create: (_) => AuthController()),
-        ChangeNotifierProvider(create: (_) => ChatController()),
+
+        // =====================================
+        // SESSION STORE
+        // =====================================
+
+        ChangeNotifierProvider<SessionStore>.value(
+          value: SessionStore.instance,
+        ),
+
+        // =====================================
+        // AUTH
+        // =====================================
+
+        ChangeNotifierProvider<AuthController>(
+          create: (_) => AuthController(),
+        ),
+
+        // =====================================
+        // CHAT
+        // =====================================
+
+        ChangeNotifierProvider<ChatController>(
+          create: (_) => ChatController(),
+        ),
       ],
+
       child: Consumer<SessionStore>(
         builder: (context, session, _) {
           return MaterialApp(
             title: 'Emie',
+
             debugShowCheckedModeBanner: false,
 
-            // ============================
-            // Theme
-            // ============================
-            themeMode: session.flutterThemeMode,
+            // =================================
+            // LOCALIZATION
+            // =================================
 
-            // ============================
-            // Localization (Sprache)
-            // ============================
             locale: session.locale,
-            supportedLocales: AppLocalizations.supportedLocales,
+
+            supportedLocales:
+                AppLocalizations.supportedLocales,
+
             localizationsDelegates: const [
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
@@ -48,41 +82,73 @@ class EmieApp extends StatelessWidget {
               GlobalCupertinoLocalizations.delegate,
             ],
 
-            // ============================
-            // Light Theme
-            // ============================
+            // =================================
+            // THEME MODE
+            // =================================
+
+            themeMode: session.flutterThemeMode,
+
+            // =================================
+            // LIGHT THEME
+            // =================================
+
             theme: ThemeData(
               brightness: Brightness.light,
+
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFFFFD37F),
+
+              colorScheme:
+                  ColorScheme.fromSeed(
+                seedColor:
+                    const Color(0xFFFFD37F),
                 brightness: Brightness.light,
               ),
-              scaffoldBackgroundColor: const Color(0xFFF4F4F7),
+
+              scaffoldBackgroundColor:
+                  const Color(0xFFF4F4F7),
+
               appBarTheme: const AppBarTheme(
-                backgroundColor: Color(0xFFF4F4F7),
+                backgroundColor:
+                    Color(0xFFF4F4F7),
+
                 elevation: 0,
               ),
             ),
 
-            // ============================
-            // Dark Theme (Emie Black/Gold)
-            // ============================
+            // =================================
+            // DARK THEME
+            // =================================
+
             darkTheme: ThemeData(
               brightness: Brightness.dark,
+
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFFFFD37F),
+
+              colorScheme:
+                  ColorScheme.fromSeed(
+                seedColor:
+                    const Color(0xFFFFD37F),
                 brightness: Brightness.dark,
               ),
-              scaffoldBackgroundColor: const Color(0xFF050307),
+
+              scaffoldBackgroundColor:
+                  const Color(0xFF050307),
+
               appBarTheme: const AppBarTheme(
-                backgroundColor: Color(0xFF050307),
+                backgroundColor:
+                    Color(0xFF050307),
+
                 elevation: 0,
               ),
             ),
 
-            home: const AuthScreen(),
+            // =================================
+            // START SCREEN
+            // =================================
+
+            home: session.isAuthenticated
+                ? const MainShell()
+                : const AuthScreen(),
           );
         },
       ),

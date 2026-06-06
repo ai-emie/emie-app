@@ -1,5 +1,6 @@
 // ===============================================
-// Emie • Response Block (ChatGPT-like)
+// Emie • Response Block
+// Theme-aware Luxury Minimal Assistant Response
 // Pfad: lib/features/chat/presentation/widgets/emie_response_card.dart
 // ===============================================
 
@@ -27,110 +28,243 @@ class EmieResponseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ChatGPT-like spacing: getrennte “Turns”, keine Card über den ganzen Screen.
-    return Padding(
-      padding: const EdgeInsets.only(top: 14, bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // dezenter Separator zwischen Turns
-          Container(
-            height: 1,
-            color: border.withOpacity(0.30),
-          ),
-          const SizedBox(height: 10),
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
 
-          // Header row: Emie + Copy
+    final gold = isDark
+        ? const Color(0xFFFCF6BA)
+        : const Color(0xFF8F6A18);
+
+    final mutedGold = isDark
+        ? const Color(0xFFBF953F)
+        : const Color(0xFFB88922);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        2,
+        18,
+        2,
+        14,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          // ======================================
+          // LABEL ROW
+          // ======================================
+
           Row(
             children: [
-              Text(
-                'Emie',
-                style: TextStyle(
-                  color: textSecondary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+              Image.asset(
+                'assets/images/emiso.logo.transparent.png',
+                height: 18,
+                fit: BoxFit.contain,
+                errorBuilder:
+                    (_, __, ___) => Icon(
+                  Icons.auto_awesome_rounded,
+                  color:
+                      gold.withOpacity(0.78),
+                  size: 16,
                 ),
               ),
+
+              const SizedBox(width: 8),
+
+              Text(
+                'emie',
+                style: TextStyle(
+                  color:
+                      gold.withOpacity(0.84),
+                  fontSize: 13,
+                  fontWeight:
+                      FontWeight.w400,
+                  letterSpacing: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+
               const Spacer(),
-              IconButton(
-                tooltip: 'Copy',
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: markdown));
-                  // bewusst kein Snackbar (du willst calm UI)
+
+              GestureDetector(
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(
+                      text: markdown,
+                    ),
+                  );
                 },
-                icon: Icon(Icons.copy_rounded, size: 18, color: textSecondary),
+                behavior:
+                    HitTestBehavior.opaque,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.all(
+                    6,
+                  ),
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 16,
+                    color: textSecondary
+                        .withOpacity(0.70),
+                  ),
+                ),
               ),
             ],
           ),
 
-          // Content with comfortable width
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 8),
-                child: MarkdownBody(
-                  data: markdown,
-                  selectable: true,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(
-                      color: textPrimary,
-                      fontSize: 14.5,
-                      height: 1.62,
-                    ),
-                    h1: TextStyle(
-                      color: textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                    h2: TextStyle(
-                      color: textPrimary,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                    h3: TextStyle(
-                      color: textPrimary,
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                    strong: TextStyle(
-                      color: textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    listBullet: TextStyle(
-                      color: textPrimary,
-                      height: 1.35,
-                    ),
-                    blockquote: TextStyle(
-                      color: textSecondary,
-                      height: 1.55,
-                    ),
-                    code: TextStyle(
-                      color: textPrimary,
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                    codeblockPadding: const EdgeInsets.all(14),
-                    codeblockDecoration: BoxDecoration(
-                      color: surface.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: border.withOpacity(0.35),
-                        width: 1,
+          const SizedBox(height: 12),
+
+          // ======================================
+          // ANSWER TEXT
+          // ======================================
+
+          ConstrainedBox(
+            constraints:
+                const BoxConstraints(
+              maxWidth: 720,
+            ),
+            child: MarkdownBody(
+              data: markdown,
+              selectable: true,
+              styleSheet:
+                  MarkdownStyleSheet(
+                p: TextStyle(
+                  color: textPrimary
+                      .withOpacity(0.95),
+                  fontSize: 15,
+                  height: 1.62,
+                  fontWeight:
+                      FontWeight.w400,
+                  fontFamily: 'Inter',
+                ),
+
+                // ===============================
+                // HEADINGS
+                // ===============================
+
+                h1: TextStyle(
+                  color:
+                      gold.withOpacity(0.96),
+                  fontSize: 22,
+                  fontWeight:
+                      FontWeight.w500,
+                  height: 1.25,
+                  fontFamily: 'Inter',
+                ),
+
+                h2: TextStyle(
+                  color:
+                      gold.withOpacity(0.94),
+                  fontSize: 18,
+                  fontWeight:
+                      FontWeight.w500,
+                  height: 1.3,
+                  fontFamily: 'Inter',
+                ),
+
+                h3: TextStyle(
+                  color:
+                      gold.withOpacity(0.92),
+                  fontSize: 16,
+                  fontWeight:
+                      FontWeight.w500,
+                  height: 1.3,
+                  fontFamily: 'Inter',
+                ),
+
+                // ===============================
+                // EMPHASIS
+                // ===============================
+
+                strong: TextStyle(
+                  color:
+                      gold.withOpacity(0.94),
+                  fontWeight:
+                      FontWeight.w600,
+                  fontFamily: 'Inter',
+                ),
+
+                em: TextStyle(
+                  color: textPrimary
+                      .withOpacity(0.88),
+                  fontStyle:
+                      FontStyle.italic,
+                  fontFamily: 'Inter',
+                ),
+
+                // ===============================
+                // LISTS
+                // ===============================
+
+                listBullet: TextStyle(
+                  color: mutedGold
+                      .withOpacity(0.90),
+                  fontSize: 15,
+                  height: 1.45,
+                  fontFamily: 'Inter',
+                ),
+
+                // ===============================
+                // BLOCKQUOTE
+                // ===============================
+
+                blockquote: TextStyle(
+                  color: textSecondary
+                      .withOpacity(0.92),
+                  height: 1.55,
+                  fontSize: 14.5,
+                  fontFamily: 'Inter',
+                ),
+
+                // ===============================
+                // INLINE CODE
+                // ===============================
+
+                code: TextStyle(
+                  color:
+                      gold.withOpacity(0.92),
+                  fontFamily:
+                      'monospace',
+                  fontSize: 13,
+                ),
+
+                // ===============================
+                // CODE BLOCK
+                // ===============================
+
+                codeblockPadding:
+                    const EdgeInsets.all(
+                  14,
+                ),
+
+                codeblockDecoration:
+                    BoxDecoration(
+                  color: surface
+                      .withOpacity(0.68),
+                  borderRadius:
+                      BorderRadius.circular(
+                    16,
+                  ),
+                  border: Border.all(
+                    color: border
+                        .withOpacity(0.75),
+                    width: 0.7,
+                  ),
+                ),
+
+                // ===============================
+                // HORIZONTAL RULE
+                // ===============================
+
+                horizontalRuleDecoration:
+                    BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: border
+                          .withOpacity(
+                        0.45,
                       ),
-                    ),
-                    horizontalRuleDecoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: border.withOpacity(0.35),
-                          width: 1,
-                        ),
-                      ),
+                      width: 0.7,
                     ),
                   ),
                 ),

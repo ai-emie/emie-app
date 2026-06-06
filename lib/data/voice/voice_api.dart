@@ -16,7 +16,7 @@ class VoiceApi {
   /// audioBase64: vom Recorder encodete Audiodaten
   Future<VoiceResult> transcribe(String audioBase64) async {
     final res = await _dio.post(
-      '/voice/transcribe',
+      '/v1/voice/transcribe',
       data: {
         'audio_base64': audioBase64,
       },

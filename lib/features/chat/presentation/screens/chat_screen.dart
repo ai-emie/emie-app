@@ -1,22 +1,22 @@
 // ===============================================
-// Emie • Chat Screen (ChatGPT-like, Theme-aware, i18n)
+// Emie • Chat Screen
+// Theme-aware Chat UI
 // Pfad: lib/features/chat/presentation/screens/chat_screen.dart
 // ===============================================
+
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
-import '../../controller/chat_controller.dart';
 import '../../../../data/chat/chat_models.dart';
+import '../../../../shared/widgets/emie_app_bar.dart';
+import '../../controller/chat_controller.dart';
 
-import '../../../settings/presentation/screens/settings_screen.dart';
-
-import '../widgets/user_message_bubble.dart';
+import '../widgets/chat_input_bar.dart';
 import '../widgets/emie_response_card.dart';
 import '../widgets/emie_typing_line.dart';
-import '../widgets/chat_input_bar.dart';
-import '../widgets/main_menu.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -26,24 +26,21 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatViewState extends State<ChatScreen> {
-  final _textController = TextEditingController();
-  final _scrollController = ScrollController();
+  final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   int _lastMessageCount = 0;
   String? _uiHint;
 
-  // ==========================================
-  //  STEP 5: Bootstrapping (load sessions once)
-  // ==========================================
   @override
   void initState() {
     super.initState();
 
     Future.microtask(() async {
       if (!mounted) return;
+
       final chat = context.read<ChatController>();
 
-      // optional: only load if empty
       if (chat.sessions.isEmpty) {
         await chat.loadSessions();
       }
@@ -60,16 +57,19 @@ class _ChatViewState extends State<ChatScreen> {
   Future<void> _send(BuildContext context) async {
     final chat = context.read<ChatController>();
     final text = _textController.text.trim();
+
     if (text.isEmpty || chat.isSending) return;
 
     setState(() => _uiHint = null);
 
     _textController.clear();
+
     await chat.send(text);
 
     if (!mounted) return;
 
     final err = chat.error;
+
     if (err != null) {
       setState(
         () => _uiHint = _t(
@@ -81,33 +81,43 @@ class _ChatViewState extends State<ChatScreen> {
     }
   }
 
-  void _autoScrollIfNeeded(int currentCount) {
-    if (currentCount != _lastMessageCount) {
-      _lastMessageCount = currentCount;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_scrollController.hasClients) return;
-        final max = _scrollController.position.maxScrollExtent;
-        _scrollController.animateTo(
-          max + 160,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-        );
-      });
-    }
-  }
-
-  // ✅ FIX: kein async/await, weil chat.newChat() void ist
   void _handleNewChat(BuildContext context) {
     final chat = context.read<ChatController>();
+
     if (chat.isSending) {
-      setState(() => _uiHint = _t(context, de: 'Bitte kurz warten…', en: 'Please wait…'));
+      setState(
+        () => _uiHint = _t(
+          context,
+          de: 'Bitte kurz warten…',
+          en: 'Please wait…',
+        ),
+      );
       return;
     }
 
     chat.newChat();
 
     if (!mounted) return;
+
     setState(() => _uiHint = null);
+  }
+
+  void _autoScrollIfNeeded(int currentCount) {
+    if (currentCount == _lastMessageCount) return;
+
+    _lastMessageCount = currentCount;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+
+      final max = _scrollController.position.maxScrollExtent;
+
+      _scrollController.animateTo(
+        max + 160,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   @override
@@ -115,153 +125,75 @@ class _ChatViewState extends State<ChatScreen> {
     final l10n = context.l10n;
     final chat = context.watch<ChatController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final bg = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFFFFFFF);
-    final surface = isDark ? const Color(0xFF161616) : const Color(0xFFF4F4F4);
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Colors.black.withValues(alpha: 0.08);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0E0E0E);
-    final textSecondary = isDark ? const Color(0xFFA0A0A0) : const Color(0xFF5A5A5A);
+    final c = _ChatColors(isDark: isDark);
 
     _autoScrollIfNeeded(chat.messages.length);
 
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: Icon(Icons.menu_rounded, color: textPrimary),
-          onPressed: () => _showMainMenu(context, isDark),
-        ),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/images/emiso.logo.transparent.png',
-              height: 22,
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.appName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    color: textPrimary,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.poweredBy,
-                  style: TextStyle(
-                    color: textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: l10n.newChat,
-            onPressed: () => _handleNewChat(context),
-            icon: Icon(Icons.add_comment_rounded, color: textPrimary),
+      backgroundColor: c.bg,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: c.gradient,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 10.0),
-            child: TextButton.icon(
-              onPressed: () => _showEmiePlusSheet(context),
-              style: TextButton.styleFrom(
-                foregroundColor: textPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  side: BorderSide(color: border, width: 1),
-                ),
-              ),
-              icon: const Icon(Icons.favorite_rounded, size: 18),
-              label: Text(
-                l10n.plus,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
+        ),
+        child: Stack(
           children: [
-            const SizedBox(height: 4),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(14, 18, 14, 10),
-                itemCount: chat.messages.length,
-                itemBuilder: (context, index) {
-                  final ChatMessage msg = chat.messages[index];
-                  final text = msg.text;
-                  final isUser = msg.role == 'user';
-
-                  if (!isUser && text.trim() == '…') {
-                    return EmieTypingLine(
-                      surface: surface,
-                      border: border,
-                      textSecondary: textSecondary,
-                    );
-                  }
-
-                  if (isUser) {
-                    return UserMessageBubble(
-                      text: text,
-                      surface: surface,
-                      border: border,
-                      textPrimary: textPrimary,
-                    );
-                  }
-
-                  return EmieResponseCard(
-                    markdown: text,
-                    bg: bg,
-                    surface: surface,
-                    border: border,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                  );
-                },
-              ),
-            ),
-            if (_uiHint != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _uiHint!,
-                    style: TextStyle(fontSize: 12, color: textSecondary),
+            _ChatLuxuryBackground(colors: c),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+                    child: EmieAppBar(
+                      section: 'chat',
+                      icon: Icons.history_rounded,
+                      onIconTap: () => _showChatListSheet(context, c),
+                    ),
                   ),
-                ),
-              ),
-            ChatInputBar(
-              controller: _textController,
-              onSend: () => _send(context),
-              onSnack: (_) {},
-              surface: surface,
-              border: border,
-              textPrimary: textPrimary,
-              textSecondary: textSecondary,
-              bg: bg,
-              hintText: l10n.askEmie,
-              attachHintText: _t(
-                context,
-                de: 'Anhänge sind aktuell nicht verfügbar.',
-                en: 'Attachments are not available yet.',
+                  Expanded(
+                    child: chat.messages.isEmpty
+                        ? _buildEmptyChat(c)
+                        : _buildMessageList(
+                            chat: chat,
+                            colors: c,
+                          ),
+                  ),
+                  if (_uiHint != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _uiHint!,
+                          style: TextStyle(
+                            color: c.muted,
+                            fontSize: 12,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ChatInputBar(
+                    controller: _textController,
+                    onSend: () => _send(context),
+                    onSnack: (_) {},
+                    surface: c.surface,
+                    border: c.border,
+                    textPrimary: c.text,
+                    textSecondary: c.muted,
+                    bg: c.bg,
+                    hintText: l10n.askEmie,
+                    attachHintText: _t(
+                      context,
+                      de: 'Anhänge sind aktuell nicht verfügbar.',
+                      en: 'Attachments are not available yet.',
+                    ),
+                  ),
+                  const SizedBox(height: 88),
+                ],
               ),
             ),
           ],
@@ -270,128 +202,458 @@ class _ChatViewState extends State<ChatScreen> {
     );
   }
 
-  void _showMainMenu(BuildContext context, bool isDark) {
-    final width = MediaQuery.of(context).size.width * 0.80;
-    final menuBg = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFFFFFFF);
+  Widget _buildEmptyChat(_ChatColors c) {
+    return ListView(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(22, 56, 22, 20),
+      children: [
+        Text(
+          _t(
+            context,
+            de: 'Neuer Chat.',
+            en: 'New chat.',
+          ),
+          style: TextStyle(
+            color: c.text.withOpacity(0.94),
+            fontSize: 25,
+            height: 1.18,
+            fontWeight: FontWeight.w400,
+            letterSpacing: -0.2,
+            fontFamily: 'Inter',
+          ),
+        ),
+      ],
+    );
+  }
 
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Main Menu',
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      transitionDuration: const Duration(milliseconds: 260),
-      pageBuilder: (ctx, anim1, anim2) {
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: width,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                color: menuBg,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
-              ),
-              child: MainMenu(
-                onClose: () => Navigator.of(ctx).pop(),
-                onOpenSettings: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
-              ),
+  Widget _buildMessageList({
+    required ChatController chat,
+    required _ChatColors colors,
+  }) {
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      itemCount: chat.messages.length,
+      itemBuilder: (context, index) {
+        final ChatMessage msg = chat.messages[index];
+        final text = msg.text;
+        final isUser = msg.role == 'user';
+
+        final messageKey = ValueKey(
+          '${msg.role}_${msg.text.hashCode}_$index',
+        );
+
+        if (!isUser && text.trim() == '…') {
+          return KeyedSubtree(
+            key: messageKey,
+            child: EmieTypingLine(
+              surface: colors.surface,
+              border: colors.border,
+              textSecondary: colors.muted,
             ),
-          ),
-        );
-      },
-      transitionBuilder: (ctx, anim, secondaryAnim, child) {
-        final offsetAnimation = Tween<Offset>(
-          begin: const Offset(-1.0, 0.0),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: anim,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+          );
+        }
 
-        return SlideTransition(position: offsetAnimation, child: child);
+        if (isUser) {
+          return KeyedSubtree(
+            key: messageKey,
+            child: _UserPlainMessage(
+              text: text,
+              colors: colors,
+            ),
+          );
+        }
+
+        return KeyedSubtree(
+          key: messageKey,
+          child: EmieResponseCard(
+            markdown: text,
+            bg: colors.bg,
+            surface: colors.surface,
+            border: colors.border,
+            textPrimary: colors.text,
+            textSecondary: colors.muted,
+          ),
+        );
       },
     );
   }
 
-  void _showEmiePlusSheet(BuildContext context) {
-    final l10n = context.l10n;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFFFFFFF);
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Colors.black.withValues(alpha: 0.08);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0E0E0E);
-    final textSecondary = isDark ? const Color(0xFFA0A0A0) : const Color(0xFF5A5A5A);
+  void _showChatListSheet(BuildContext context, _ChatColors c) {
+    final chat = context.read<ChatController>();
+    final searchController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.favorite_rounded, color: textPrimary),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.emiePlusTitle,
-                      style: TextStyle(
-                        color: textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final query = searchController.text.trim().toLowerCase();
+
+            final sessions = chat.sessions.where((session) {
+              if (query.isEmpty) return true;
+              return session.id.toLowerCase().contains(query);
+            }).toList();
+
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.72,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                  decoration: BoxDecoration(
+                    color: c.sheet,
+                    border: Border(
+                      top: BorderSide(
+                        color: c.border,
+                        width: 0.7,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(l10n.emiePlusLine1, style: TextStyle(color: textSecondary, fontSize: 13, height: 1.35)),
-                const SizedBox(height: 8),
-                Text(l10n.emiePlusLine2, style: TextStyle(color: textSecondary, fontSize: 12, height: 1.35)),
-                const SizedBox(height: 12),
-                Text(l10n.emiePlusLine3, style: TextStyle(color: textSecondary, fontSize: 12, height: 1.35)),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: border),
-                      foregroundColor: textPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-                    ),
-                    child: Text(l10n.ok, style: const TextStyle(fontSize: 13)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            _t(
+                              context,
+                              de: 'Chats',
+                              en: 'Chats',
+                            ),
+                            style: TextStyle(
+                              color: c.goldText,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.2,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              _handleNewChat(context);
+                            },
+                            icon: Icon(
+                              Icons.add_rounded,
+                              color: c.goldText.withOpacity(0.82),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 46,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: c.border,
+                            width: 0.7,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.search_rounded,
+                              color: c.muted,
+                              size: 19,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                onChanged: (_) => setSheetState(() {}),
+                                style: TextStyle(
+                                  color: c.text,
+                                  fontSize: 14,
+                                  fontFamily: 'Inter',
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: _t(
+                                    context,
+                                    de: 'Chats suchen...',
+                                    en: 'Search chats...',
+                                  ),
+                                  hintStyle: TextStyle(
+                                    color: c.muted,
+                                    fontSize: 14,
+                                    fontFamily: 'Inter',
+                                  ),
+                                  border: InputBorder.none,
+                                  isCollapsed: true,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: sessions.isEmpty
+                            ? Center(
+                                child: Text(
+                                  _t(
+                                    context,
+                                    de: 'Noch keine gespeicherten Chats.',
+                                    en: 'No saved chats yet.',
+                                  ),
+                                  style: TextStyle(
+                                    color: c.muted,
+                                    fontSize: 14,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                physics: const BouncingScrollPhysics(),
+                                itemCount: sessions.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final session = sessions[index];
+
+                                  return _ChatHistoryItem(
+                                    title: 'Chat ${index + 1}',
+                                    subtitle: _t(
+                                      context,
+                                      de: 'Gespeicherte Unterhaltung',
+                                      en: 'Saved conversation',
+                                    ),
+                                    colors: c,
+                                    onTap: () async {
+                                      Navigator.of(ctx).pop();
+                                      await chat.openChat(session.id);
+                                    },
+                                    onDelete: () async {
+                                      await chat.deleteChat(session.id);
+
+                                      if (context.mounted) {
+                                        Navigator.of(ctx).pop();
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
-    );
+    ).whenComplete(() {
+      searchController.dispose();
+    });
   }
 
-  String _t(BuildContext context, {required String de, required String en}) {
+  String _t(
+    BuildContext context, {
+    required String de,
+    required String en,
+  }) {
     final code = Localizations.localeOf(context).languageCode;
     return code == 'de' ? de : en;
+  }
+}
+
+// ==============================================
+// COLORS
+// ==============================================
+
+class _ChatColors {
+  const _ChatColors({
+    required this.isDark,
+  });
+
+  final bool isDark;
+
+  Color get bg => isDark
+      ? const Color(0xFF050307)
+      : const Color(0xFFF4F1EA);
+
+  Color get bg2 => isDark
+      ? const Color(0xFF0A0712)
+      : const Color(0xFFFFFBF3);
+
+  Color get surface => isDark
+      ? const Color(0xFF141312)
+      : const Color(0xFFFCF8F1);
+
+  Color get text => isDark
+      ? Colors.white
+      : const Color(0xFF17130C);
+
+  Color get muted => isDark
+      ? const Color(0xFF8E8B85)
+      : const Color(0xFF736B5F);
+
+  Color get goldText => isDark
+      ? const Color(0xFFFCF6BA)
+      : const Color(0xFF8A6117);
+
+  Color get amber => isDark
+      ? const Color(0xFFFFC96B)
+      : const Color(0xFFB88922);
+
+  Color get border => goldText.withOpacity(isDark ? 0.16 : 0.22);
+
+  Color get sheet => isDark
+      ? Colors.black.withOpacity(0.88)
+      : const Color(0xFFFFFBF3).withOpacity(0.94);
+
+  List<Color> get gradient => [bg, bg2, bg];
+}
+
+// ==============================================
+// BACKGROUND
+// ==============================================
+
+class _ChatLuxuryBackground extends StatelessWidget {
+  const _ChatLuxuryBackground({
+    required this.colors,
+  });
+
+  final _ChatColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -100,
+          right: -130,
+          child: Container(
+            width: 330,
+            height: 330,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  colors.amber.withOpacity(
+                    colors.isDark ? 0.10 : 0.14,
+                  ),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ==============================================
+// USER MESSAGE
+// ==============================================
+
+class _UserPlainMessage extends StatelessWidget {
+  const _UserPlainMessage({
+    required this.text,
+    required this.colors,
+  });
+
+  final String text;
+  final _ChatColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(42, 10, 2, 14),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          text,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            color: colors.text.withOpacity(0.92),
+            fontSize: 15,
+            height: 1.45,
+            fontWeight: FontWeight.w400,
+            fontFamily: 'Inter',
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==============================================
+// CHAT HISTORY ITEM
+// ==============================================
+
+class _ChatHistoryItem extends StatelessWidget {
+  const _ChatHistoryItem({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    required this.onDelete,
+    required this.colors,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final _ChatColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colors.border,
+          width: 0.7,
+        ),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.only(
+          left: 16,
+          right: 6,
+          top: 4,
+          bottom: 4,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: colors.goldText.withOpacity(0.92),
+            fontSize: 14.5,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Inter',
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: colors.muted,
+            fontSize: 12.5,
+            fontFamily: 'Inter',
+          ),
+        ),
+        trailing: IconButton(
+          onPressed: onDelete,
+          icon: Icon(
+            Icons.delete_outline_rounded,
+            color: colors.muted,
+            size: 20,
+          ),
+        ),
+      ),
+    );
   }
 }

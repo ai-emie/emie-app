@@ -1,406 +1,407 @@
-// ===============================================
-// Emie • Settings Screen (ChatGPT-like, Theme-aware, i18n)
+// ==============================================
+// Emie • Settings Screen
+// Konto • Erscheinungsbild • Sprache • Emie
 // Pfad: lib/features/settings/presentation/screens/settings_screen.dart
-// ===============================================
+// ==============================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/localization/app_localizations.dart';
 import '../../../../state/session_store.dart';
 import '../../../auth/presentation/screens/auth_screen.dart';
-import '../../../chat/presentation/screens/chat_screen.dart';
-import 'change_password_screen.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  late EmieThemeMode _themeMode;
-  late String _language;
-
-  @override
-  void initState() {
-    super.initState();
-    final session = SessionStore.instance;
-    _themeMode = session.themeMode;
-    _language = session.language;
-  }
-
-  void _exitSettings(BuildContext context) {
-    // ✅ Always leave settings:
-    // 1) normal pop if possible
-    // 2) otherwise fallback to ChatScreen (prevents "trapped" states)
-    final nav = Navigator.of(context);
-
-    if (nav.canPop()) {
-      nav.pop();
-      return;
-    }
-
-    nav.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ChatScreen()),
-      (route) => false,
-    );
-  }
+  static const Color _gold = Color(0xFF8A6117);
+  static const Color _goldSoft = Color(0xFF9A6F1C);
+  static const Color _danger = Color(0xFFFF7A7A);
 
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
-    final l10n = context.l10n;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = _SettingsColors(isDark: isDark);
+    final t = _SettingsText(session.language);
 
-    // Sync bei externen Änderungen
-    _themeMode = session.themeMode;
-    _language = session.language;
-
-    final displayName = session.displayName;
-    final displayInitial = session.displayInitial;
-    final email = session.user?.email ?? '—';
-
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final bg = theme.scaffoldBackgroundColor;
-    final cardBg = isDark ? const Color(0xFF0D0D11) : Colors.white;
-    final cardBorder = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Colors.black.withValues(alpha: 0.08);
-
-    final titleColor = isDark ? Colors.white : const Color(0xFF0E0E0E);
-    final subColor = isDark
-        ? Colors.white.withValues(alpha: 0.62)
-        : Colors.black.withValues(alpha: 0.55);
-
-    final gold = const Color(0xFFFFD37F);
+    final email = session.user?.email ?? t.notLoaded;
+    final name = session.displayName;
+    final initial = session.displayInitial;
 
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        centerTitle: true,
-
-        // ✅ FIX: Du kommst IMMER raus
-        leading: IconButton(
-          icon: Icon(
-            Icons.close_rounded, // ChatGPT-like close
-            size: 22,
-            color: titleColor,
+      backgroundColor: c.bg,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: c.gradient,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          onPressed: () => _exitSettings(context),
-          tooltip: _t(context, de: 'Schließen', en: 'Close'),
         ),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 36),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _Header(title: t.settings, colors: c),
+              const SizedBox(height: 30),
 
-        title: Text(
-          l10n.settings,
-          style: TextStyle(
-            color: titleColor,
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
+              _ProfileCard(
+                name: name,
+                email: email,
+                initial: initial,
+                colors: c,
+              ),
+
+              const SizedBox(height: 26),
+
+              _SectionTitle(t.account, colors: c),
+              _SettingsCard(
+                colors: c,
+                children: [
+                  _InfoTile(
+                    icon: Icons.mail_outline_rounded,
+                    title: t.email,
+                    subtitle: email,
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _ActionTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: t.changePassword,
+                    subtitle: t.comingSoon,
+                    colors: c,
+                    onTap: () {},
+                  ),
+                  _Divider(colors: c),
+                  _ActionTile(
+                    icon: Icons.logout_rounded,
+                    title: t.logout,
+                    subtitle: t.backToLogin,
+                    danger: true,
+                    colors: c,
+                    onTap: () {
+                      context.read<SessionStore>().clear();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const AuthScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 26),
+
+              _SectionTitle(t.appearance, colors: c),
+              _SettingsCard(
+                colors: c,
+                children: [
+                  _ThemeTile(
+                    title: t.system,
+                    subtitle: t.systemSub,
+                    value: EmieThemeMode.system,
+                    selected: session.themeMode == EmieThemeMode.system,
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _ThemeTile(
+                    title: 'Light Gold',
+                    subtitle: t.lightSub,
+                    value: EmieThemeMode.light,
+                    selected: session.themeMode == EmieThemeMode.light,
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _ThemeTile(
+                    title: 'Black Gold',
+                    subtitle: t.darkSub,
+                    value: EmieThemeMode.dark,
+                    selected: session.themeMode == EmieThemeMode.dark,
+                    colors: c,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 26),
+
+              _SectionTitle(t.language, colors: c),
+              _SettingsCard(
+                colors: c,
+                children: [
+                  _LanguageTile(
+                    title: 'Deutsch',
+                    subtitle: 'App-Sprache Deutsch',
+                    code: 'de',
+                    selected: session.language == 'de',
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _LanguageTile(
+                    title: 'English',
+                    subtitle: 'App language English',
+                    code: 'en',
+                    selected: session.language == 'en',
+                    colors: c,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 26),
+
+              _SectionTitle('Emie', colors: c),
+              _SettingsCard(
+                colors: c,
+                children: [
+                  _InfoTile(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Emie Plus',
+                    subtitle: t.plusSub,
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _InfoTile(
+                    icon: Icons.info_outline_rounded,
+                    title: t.version,
+                    subtitle: 'Emie Alpha · 0.1',
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _InfoTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: t.privacy,
+                    subtitle: t.comingSoon,
+                    colors: c,
+                  ),
+                  _Divider(colors: c),
+                  _InfoTile(
+                    icon: Icons.description_outlined,
+                    title: t.terms,
+                    subtitle: t.comingSoon,
+                    colors: c,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            // ===========================================
-            //  PROFIL
-            // ===========================================
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              margin: const EdgeInsets.only(bottom: 18),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cardBorder),
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 18,
-                    offset: const Offset(0, 10),
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.35)
-                        : Colors.black.withValues(alpha: 0.06),
-                  ),
-                ],
+    );
+  }
+}
+
+// ==============================================
+// COLORS
+// ==============================================
+
+class _SettingsColors {
+  _SettingsColors({required this.isDark});
+
+  final bool isDark;
+
+  Color get bg => isDark
+      ? const Color(0xFF050307)
+      : const Color(0xFFF4F1EA);
+
+  Color get bg2 => isDark
+      ? const Color(0xFF0A0712)
+      : const Color(0xFFFFFBF3);
+
+  Color get card => isDark
+      ? const Color(0xFF141312)
+      : const Color(0xFFFCF8F1);
+
+  Color get text => isDark
+      ? Colors.white
+      : const Color(0xFF17130C);
+
+  Color get muted => isDark
+      ? const Color(0xFF8E8B85)
+      : const Color(0xFF736B5F);
+
+  Color get border => SettingsScreen._gold.withOpacity(
+        isDark ? 0.12 : 0.24,
+      );
+
+  List<Color> get gradient => [bg, bg2, bg];
+}
+
+// ==============================================
+// TEXT
+// ==============================================
+
+class _SettingsText {
+  _SettingsText(String code) : isDe = code == 'de';
+
+  final bool isDe;
+
+  String get settings => isDe ? 'Einstellungen' : 'Settings';
+  String get account => isDe ? 'Konto' : 'Account';
+  String get appearance => isDe ? 'Erscheinungsbild' : 'Appearance';
+  String get language => isDe ? 'Sprache' : 'Language';
+  String get email => isDe ? 'E-Mail' : 'Email';
+  String get changePassword => isDe ? 'Passwort ändern' : 'Change password';
+  String get comingSoon => isDe ? 'Kommt bald' : 'Coming soon';
+  String get logout => isDe ? 'Abmelden' : 'Log out';
+  String get backToLogin => isDe ? 'Zurück zum Login' : 'Back to login';
+  String get notLoaded => isDe ? 'Noch nicht geladen' : 'Not loaded yet';
+
+  String get system => isDe ? 'System' : 'System';
+  String get systemSub => isDe ? 'Emie folgt deinem Gerät' : 'Emie follows your device';
+  String get lightSub => isDe ? 'Helles Design mit Gold-Akzent' : 'Light design with gold accent';
+  String get darkSub => isDe ? 'Dunkles Premium-Design' : 'Dark premium design';
+
+  String get plusSub => isDe
+      ? 'Mehr Tokens & früherer Feature-Zugang'
+      : 'More tokens & early feature access';
+
+  String get version => isDe ? 'Version' : 'Version';
+  String get privacy => isDe ? 'Datenschutz' : 'Privacy';
+  String get terms => isDe ? 'Nutzungsbedingungen' : 'Terms of use';
+}
+
+// ==============================================
+// HEADER
+// ==============================================
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.title,
+    required this.colors,
+  });
+
+  final String title;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.text.withOpacity(0.025),
+              border: Border.all(
+                color: SettingsScreen._gold.withOpacity(0.20),
+                width: 0.7,
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: gold.withValues(alpha: 0.90),
-                        width: 1.6,
-                      ),
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.black.withValues(alpha: 0.04),
-                    ),
-                    child: Center(
-                      child: Text(
-                        displayInitial,
-                        style: TextStyle(
-                          color: titleColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: TextStyle(
-                            color: titleColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          email,
-                          style: TextStyle(
-                            color: subColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
-
-            // ===========================================
-            //  KONTO
-            // ===========================================
-            _sectionHeader(l10n.account, subColor),
-            _settingsCard(
-              cardBg: cardBg,
-              cardBorder: cardBorder,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.email, style: TextStyle(color: titleColor)),
-                  subtitle: Text(email, style: TextStyle(color: subColor)),
-                ),
-                Divider(height: 1, color: cardBorder),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.changePassword, style: TextStyle(color: titleColor)),
-                  trailing: Icon(Icons.chevron_right_rounded, color: subColor),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-                    );
-                  },
-                ),
-              ],
+            child: Icon(
+              Icons.close_rounded,
+              color: SettingsScreen._gold.withOpacity(0.82),
+              size: 20,
             ),
-            const SizedBox(height: 12),
-            _logoutButton(context, l10n.logout),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          title,
+          style: TextStyle(
+            color: colors.text,
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Inter',
+            letterSpacing: -0.2,
+          ),
+        ),
+        const Spacer(),
+        const SizedBox(width: 38),
+      ],
+    );
+  }
+}
 
-            const SizedBox(height: 24),
+// ==============================================
+// PROFILE CARD
+// ==============================================
 
-            // ===========================================
-            //  ERSCHEINUNGSBILD
-            // ===========================================
-            _sectionHeader(l10n.appearance, subColor),
-            _settingsCard(
-              cardBg: cardBg,
-              cardBorder: cardBorder,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    l10n.design,
-                    style: TextStyle(
-                      color: subColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _themeRadio(
-                  context: context,
-                  label: l10n.systemDefault,
-                  description: l10n.systemDesc,
-                  value: EmieThemeMode.system,
-                  isSelected: _themeMode == EmieThemeMode.system,
-                  titleColor: titleColor,
-                  subColor: subColor,
-                  gold: gold,
-                ),
-                _themeRadio(
-                  context: context,
-                  label: l10n.lightTheme,
-                  description: l10n.lightDesc,
-                  value: EmieThemeMode.light,
-                  isSelected: _themeMode == EmieThemeMode.light,
-                  titleColor: titleColor,
-                  subColor: subColor,
-                  gold: gold,
-                ),
-                _themeRadio(
-                  context: context,
-                  label: l10n.darkTheme,
-                  description: l10n.darkDesc,
-                  value: EmieThemeMode.dark,
-                  isSelected: _themeMode == EmieThemeMode.dark,
-                  titleColor: titleColor,
-                  subColor: subColor,
-                  gold: gold,
-                ),
-              ],
-            ),
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.name,
+    required this.email,
+    required this.initial,
+    required this.colors,
+  });
 
-            const SizedBox(height: 24),
+  final String name;
+  final String email;
+  final String initial;
+  final _SettingsColors colors;
 
-            // ===========================================
-            //  SPRACHE
-            // ===========================================
-            _sectionHeader(l10n.language, subColor),
-            _settingsCard(
-              cardBg: cardBg,
-              cardBorder: cardBorder,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.appLanguage, style: TextStyle(color: titleColor)),
-                  subtitle: Text(
-                    _language == 'de' ? l10n.german : l10n.english,
-                    style: TextStyle(color: subColor),
-                  ),
-                  trailing: Icon(Icons.swap_horiz_rounded, color: subColor),
-                  onTap: () {
-                    final newLang = _language == 'de' ? 'en' : 'de';
-                    setState(() => _language = newLang);
-                    context.read<SessionStore>().setLanguage(newLang);
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // ===========================================
-            //  ÜBER EMIE
-            // ===========================================
-            _sectionHeader(l10n.about, subColor),
-            _settingsCard(
-              cardBg: cardBg,
-              cardBorder: cardBorder,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.version, style: TextStyle(color: titleColor)),
-                  subtitle: Text('Emie · 0.1', style: TextStyle(color: subColor)),
-                ),
-                Divider(height: 1, color: cardBorder),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.poweredBy, style: TextStyle(color: titleColor)),
-                  subtitle: Text(l10n.builtBy, style: TextStyle(color: subColor)),
-                ),
-              ],
-            ),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(0.7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            SettingsScreen._goldSoft.withOpacity(0.24),
+            SettingsScreen._gold.withOpacity(0.32),
+            SettingsScreen._goldSoft.withOpacity(0.10),
           ],
         ),
       ),
-    );
-  }
-
-  // =========================================================
-  //  HELFER
-  // =========================================================
-  Widget _sectionHeader(String title, Color subColor) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: subColor,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: colors.card,
+          borderRadius: BorderRadius.circular(23),
         ),
-      ),
-    );
-  }
-
-  Widget _settingsCard({
-    required Color cardBg,
-    required Color cardBorder,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cardBorder),
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _themeRadio({
-    required BuildContext context,
-    required String label,
-    required String description,
-    required EmieThemeMode value,
-    required bool isSelected,
-    required Color titleColor,
-    required Color subColor,
-    required Color gold,
-  }) {
-    return InkWell(
-      onTap: () {
-        setState(() => _themeMode = value);
-        context.read<SessionStore>().setThemeMode(value);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6.0),
         child: Row(
           children: [
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              size: 20,
-              color: isSelected ? gold : subColor,
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: SettingsScreen._goldSoft.withOpacity(0.10),
+                border: Border.all(
+                  color: SettingsScreen._gold.withOpacity(0.30),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: SettingsScreen._gold,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label,
+                    name,
                     style: TextStyle(
-                      color: titleColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      color: colors.text,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Inter',
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(description, style: TextStyle(color: subColor, fontSize: 12)),
+                  const SizedBox(height: 5),
+                  Text(
+                    email,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontSize: 13,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -409,30 +410,284 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
 
-  Widget _logoutButton(BuildContext context, String label) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton.icon(
-        onPressed: () {
-          final session = context.read<SessionStore>();
-          session.clear();
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const AuthScreen()),
-            (route) => false,
-          );
-        },
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFFF8080),
+// ==============================================
+// SECTION TITLE
+// ==============================================
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title, {required this.colors});
+
+  final String title;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 9),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: SettingsScreen._gold.withOpacity(0.70),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.3,
+          fontFamily: 'Inter',
         ),
-        icon: const Icon(Icons.logout_rounded, size: 18),
-        label: Text(label, style: const TextStyle(fontSize: 13.5)),
       ),
     );
   }
+}
 
-  String _t(BuildContext context, {required String de, required String en}) {
-    final code = Localizations.localeOf(context).languageCode;
-    return code == 'de' ? de : en;
+// ==============================================
+// SETTINGS CARD
+// ==============================================
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({
+    required this.children,
+    required this.colors,
+  });
+
+  final List<Widget> children;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: colors.border,
+          width: 0.7,
+        ),
+      ),
+      child: Column(children: children),
+    );
+  }
+}
+
+// ==============================================
+// TILES
+// ==============================================
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BaseTile(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      colors: colors,
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    required this.colors,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final _SettingsColors colors;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BaseTile(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
+      danger: danger,
+      trailing: Icons.chevron_right_rounded,
+      colors: colors,
+    );
+  }
+}
+
+class _ThemeTile extends StatelessWidget {
+  const _ThemeTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.selected,
+    required this.colors,
+  });
+
+  final String title;
+  final String subtitle;
+  final EmieThemeMode value;
+  final bool selected;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BaseTile(
+      icon: selected
+          ? Icons.radio_button_checked_rounded
+          : Icons.radio_button_off_rounded,
+      title: title,
+      subtitle: subtitle,
+      selected: selected,
+      colors: colors,
+      onTap: () {
+        context.read<SessionStore>().setThemeMode(value);
+      },
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({
+    required this.title,
+    required this.subtitle,
+    required this.code,
+    required this.selected,
+    required this.colors,
+  });
+
+  final String title;
+  final String subtitle;
+  final String code;
+  final bool selected;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return _BaseTile(
+      icon: selected
+          ? Icons.radio_button_checked_rounded
+          : Icons.radio_button_off_rounded,
+      title: title,
+      subtitle: subtitle,
+      selected: selected,
+      colors: colors,
+      onTap: () {
+        context.read<SessionStore>().setLanguage(code);
+      },
+    );
+  }
+}
+
+class _BaseTile extends StatelessWidget {
+  const _BaseTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+    this.onTap,
+    this.trailing,
+    this.selected = false,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final _SettingsColors colors;
+  final VoidCallback? onTap;
+  final IconData? trailing;
+  final bool selected;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final mainColor = danger
+        ? SettingsScreen._danger
+        : selected
+            ? SettingsScreen._gold
+            : colors.text;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: danger
+                  ? SettingsScreen._danger
+                  : SettingsScreen._gold.withOpacity(
+                      selected ? 0.92 : 0.72,
+                    ),
+              size: 22,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: mainColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontSize: 13,
+                      height: 1.3,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              Icon(
+                trailing,
+                color: SettingsScreen._gold.withOpacity(0.50),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider({required this.colors});
+
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 0.6,
+      color: colors.border,
+    );
   }
 }

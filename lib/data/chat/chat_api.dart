@@ -84,6 +84,30 @@ class ChatApi {
     await _dio.delete('/v1/chat/sessions/$sessionId');
   }
 
+
+  // ==========================================================
+  //  DAILY WELCOME → GET /v1/get-daily-welcome
+  // ==========================================================
+  Future<String> getDailyWelcome() async {
+    try {
+      final res = await _dio.get('/v1/get-daily-welcome');
+      final data = res.data as Map<String, dynamic>? ?? {};
+
+      final message = (data['message'] ?? '').toString().trim();
+
+      if (message.isNotEmpty) {
+        return message;
+      }
+
+      return 'Schön, dass du da bist. Womit soll ich dir heute helfen?';
+    } catch (e, st) {
+      // ignore: avoid_print
+      print("ChatApi DailyWelcome error: $e\n$st");
+
+      return 'Schön, dass du da bist. Womit soll ich dir heute helfen?';
+    }
+  }
+
   // ==========================================================
   //  BRAIN v2: SEND_MESSAGE → POST /v1/chat/respond
   // ==========================================================

@@ -1,0 +1,16 @@
+lib/app.dart
+lib/core/config/env.dart
+lib/data/auth/auth_api.dart
+lib/data/chat/chat_api.dart
+lib/data/chat/chat_repository.dart
+lib/data/voice/voice_api.dart
+lib/features/auth/presentation/screens/auth_screen.dart
+lib/features/chat/controller/chat_controller.dart
+lib/features/chat/presentation/screens/chat_screen.dart
+lib/features/chat/presentation/widgets/chat_input_bar.dart
+lib/features/chat/presentation/widgets/emie_response_card.dart
+lib/features/chat/presentation/widgets/emie_typing_line.dart
+lib/features/chat/presentation/widgets/main_menu.dart
+lib/features/chat/presentation/widgets/user_message_bubble.dart
+lib/features/settings/presentation/screens/settings_screen.dart
+lib/state/session_store.dart
