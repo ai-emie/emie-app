@@ -1,3 +1,7 @@
+# ===============================================
+# Emie Flutter App • Git Ignore
+# ===============================================
+
 # Miscellaneous
 *.class
 *.log
@@ -18,12 +22,10 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
-# Flutter/Dart/Pub related
+# Flutter / Dart
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -33,13 +35,53 @@ migrate_working_dir/
 /build/
 /coverage/
 
-# Symbolication related
+# Symbolication
 app.*.symbols
 
-# Obfuscation related
+# Obfuscation
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android build artifacts
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/.gradle/
+android/build/
+
+# iOS build artifacts
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+
+# ===============================================
+# Secrets / Environment
+# ===============================================
+
+.env
+.env.*
+!.env.example
+
+# Android signing
+android/key.properties
+key.properties
+
+*.jks
+*.keystore
+
+android/app/*.jks
+android/app/*.keystore
+
+keystores/
+android/keystores/
+
+# Firebase
+google-services.json
+android/app/google-services.json
+
+GoogleService-Info.plist
+ios/Runner/GoogleService-Info.plist
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
