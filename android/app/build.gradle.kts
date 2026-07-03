@@ -3,17 +3,32 @@
 // Pfad: android/app/build.gradle.kts
 // ===============================================
 
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // Flutter Plugin
     id("dev.flutter.flutter-gradle-plugin")
-    // Google Services Plugin (für Google Login)
     id("com.google.gms.google-services")
+}
+
+// ===============================================
+// Release Key laden
+// ===============================================
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(
+        FileInputStream(keystorePropertiesFile)
+    )
 }
 
 android {
     namespace = "ai.emie.app"
+
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,28 +43,51 @@ android {
 
     defaultConfig {
         applicationId = "ai.emie.app"
+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    // ===========================================
+    // Release Signing
+    // ===========================================
+
+    signingConfigs {
+        create("release") {
+            storeFile =
+                file(keystoreProperties["storeFile"] as String)
+
+            storePassword =
+                keystoreProperties["storePassword"] as String
+
+            keyAlias =
+                keystoreProperties["keyAlias"] as String
+
+            keyPassword =
+                keystoreProperties["keyPassword"] as String
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                signingConfigs.getByName("release")
         }
     }
 }
 
 dependencies {
-    // Firebase BOM – Versionen automatisch kompatibel halten
-    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
 
-    // Google Sign-In (Pflicht für Google Login)
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation(
+        platform("com.google.firebase:firebase-bom:34.6.0")
+    )
 
-    // (Optional) Firebase Analytics
-    // implementation("com.google.firebase:firebase-analytics")
+    implementation(
+        "com.google.android.gms:play-services-auth:20.7.0"
+    )
 }
 
 flutter {

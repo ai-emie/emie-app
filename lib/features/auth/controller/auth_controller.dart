@@ -11,8 +11,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../api/api_error.dart';
+import '../../../core/config/env.dart';
 import '../../../data/auth/auth_repository.dart';
-import '../../../state/session_store.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController() : _repo = AuthRepository();
@@ -281,8 +281,7 @@ class AuthController extends ChangeNotifier {
   try {
     // Google Sign-In konfigurieren
     final googleSignIn = GoogleSignIn(
-    scopes: ['email'],
-    clientId:'473028737902-jcnd97pem8rgul5cd55r8gtf1b3pm14h.apps.googleusercontent.com',
+      scopes: const ['email'],
     );
 
 
@@ -323,13 +322,12 @@ Future<void> logout() async {
   // 1) Google Sign-In abmelden (falls genutzt)
   try {
     final googleSignIn = GoogleSignIn(
-      scopes: ['email'],
-      // gleiche clientId wie im loginWithGoogle()
-      clientId:
-          'DEINE-WEB-CLIENT-ID.apps.googleusercontent.com',
+      scopes: const ['email'],
     );
+
     await googleSignIn.signOut();
-    // Optional, etwas „härter“:
+
+    // Optional härter, falls Google lokal hängen bleibt:
     // await googleSignIn.disconnect();
   } catch (e) {
     if (kDebugMode) {
@@ -337,8 +335,11 @@ Future<void> logout() async {
     }
   }
 
-  // 2) Emie-Session löschen
-  SessionStore.instance.clear();
+  // 2) Emie-Session + Secure Storage löschen
+  await _repo.logout();
+
+  // 3) Fehlerstatus zurücksetzen + UI informieren
+  _setError(null);
   notifyListeners();
 }
 
