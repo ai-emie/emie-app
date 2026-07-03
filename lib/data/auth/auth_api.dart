@@ -33,17 +33,19 @@ class AuthApi {
   }
 
   // -------------------------------------------
-  // • Registrierung (E-Mail & Passwort)
+  // • Registrierung
   //    Backend: POST /v1/auth/register
-  //    Response: VerifyResponse (KEIN TokenPair)
-// -------------------------------------------
+  //    Response: VerifyResponse
+  // -------------------------------------------
   Future<VerifyResponse> register({
+    required String name,
     required String email,
     required String password,
   }) async {
     final res = await _dio.post(
       '/v1/auth/register',
       data: {
+        'name': name,
         'email': email,
         'password': password,
       },
@@ -79,7 +81,7 @@ class AuthApi {
   }
 
   // -------------------------------------------
-  // • Google Login (Backend später)
+  // • Google Login
   //    Backend: POST /v1/auth/google
   // -------------------------------------------
   Future<TokenPair> loginWithGoogle({
@@ -109,7 +111,7 @@ class AuthApi {
       },
     );
 
-  return TokenPair.fromJson(res.data as Map<String, dynamic>);
+    return TokenPair.fromJson(res.data as Map<String, dynamic>);
   }
 
   // -------------------------------------------
@@ -119,7 +121,9 @@ class AuthApi {
   Future<void> requestPasswordReset({required String email}) async {
     await _dio.post(
       '/v1/auth/password/reset/start',
-      data: {'email': email},
+      data: {
+        'email': email,
+      },
     );
   }
 }

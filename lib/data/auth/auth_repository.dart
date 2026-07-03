@@ -3,6 +3,7 @@
 // Pfad: lib/data/auth/auth_repository.dart
 // ===============================================
 
+import '../../core/storage/secure_storage.dart';
 import '../../state/session_store.dart';
 import 'auth_api.dart';
 import 'auth_models.dart';
@@ -15,53 +16,51 @@ class AuthRepository {
 
   // -------------------------------------------
   // • Login via E-Mail & Passwort
-  //    - Holt Tokens
-  //    - Speichert Tokens im SessionStore
-  //    - Lädt /v1/me und speichert User
   // -------------------------------------------
   Future<UserProfile> loginWithEmail(
     String email,
     String password,
   ) async {
-    // 1) Tokens holen
     final tokens = await _api.login(
       email: email,
       password: password,
     );
 
-    // 2) Tokens im SessionStore speichern
     _session.updateTokens(
       tokens.accessToken,
       refresh: tokens.refreshToken,
     );
 
-    // 3) Profil holen
+    await SecureStorageService.saveTokens(
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    );
+
     final user = await _api.me();
     _session.updateUser(user);
+
     return user;
   }
 
   // -------------------------------------------
   // • Registrierung (ohne Auto-Login)
-  //    Backend: POST /v1/auth/register
-  //    Response: VerifyResponse (z.B. "Check deine Mail")
   // -------------------------------------------
   Future<VerifyResponse> registerWithEmail({
-    required String name, // aktuell nur im Frontend genutzt
+    required String name,
     required String email,
     required String password,
   }) async {
-    // Name schicken wir später über /profile, aktuell egal.
     final res = await _api.register(
+      name: name,
       email: email,
       password: password,
     );
+
     return res;
   }
 
   // -------------------------------------------
-  // • E-Mail-Bestätigung (Verify-Link aus Mail)
-  //    Backend: GET /v1/auth/verify?token=...
+  // • E-Mail-Bestätigung
   // -------------------------------------------
   Future<VerifyResponse> verifyEmail(String token) async {
     final res = await _api.verifyEmail(token: token);
@@ -78,41 +77,67 @@ class AuthRepository {
   }
 
   // -------------------------------------------
-  // • Google Login (Stub / später für 1.1)
+  // • Google Login
   // -------------------------------------------
   Future<UserProfile> loginWithGoogle(String idToken) async {
-    final tokens = await _api.loginWithGoogle(idToken: idToken);
-    _session.updateTokens(tokens.accessToken, refresh: tokens.refreshToken);
+    final tokens = await _api.loginWithGoogle(
+      idToken: idToken,
+    );
+
+    _session.updateTokens(
+      tokens.accessToken,
+      refresh: tokens.refreshToken,
+    );
+
+    await SecureStorageService.saveTokens(
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    );
 
     final user = await _api.me();
     _session.updateUser(user);
+
     return user;
   }
 
   // -------------------------------------------
-  // • Apple Login (Stub / später für 1.1)
+  // • Apple Login
   // -------------------------------------------
   Future<UserProfile> loginWithApple(String identityToken) async {
-    final tokens = await _api.loginWithApple(identityToken: identityToken);
-    _session.updateTokens(tokens.accessToken, refresh: tokens.refreshToken);
+    final tokens = await _api.loginWithApple(
+      identityToken: identityToken,
+    );
+
+    _session.updateTokens(
+      tokens.accessToken,
+      refresh: tokens.refreshToken,
+    );
+
+    await SecureStorageService.saveTokens(
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    );
 
     final user = await _api.me();
     _session.updateUser(user);
+
     return user;
   }
 
   // -------------------------------------------
   // • Logout
   // -------------------------------------------
-  void logout() {
+  Future<void> logout() async {
+    await SecureStorageService.clearTokens();
     _session.clear();
   }
 
   // -------------------------------------------
-  // • Forgot Password (Reset via Mail)
+  // • Forgot Password
   // -------------------------------------------
   Future<void> requestPasswordReset(String email) async {
-    await _api.requestPasswordReset(email: email);
+    await _api.requestPasswordReset(
+      email: email,
+    );
   }
-
 }
