@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/storage/secure_storage.dart';
 import '../data/auth/auth_models.dart';
 
 /// App-weite Theme-Optionen für Emie.
@@ -24,8 +25,7 @@ enum EmieTone {
 class SessionStore extends ChangeNotifier {
   SessionStore._internal();
 
-  static final SessionStore instance =
-      SessionStore._internal();
+  static final SessionStore instance = SessionStore._internal();
 
   // ===========================================
   // ONLINE / OFFLINE
@@ -59,13 +59,11 @@ class SessionStore extends ChangeNotifier {
   UserProfile? get user => _user;
 
   bool get isAuthenticated {
-    return _accessToken != null &&
-        _accessToken!.isNotEmpty;
+    return _accessToken != null && _accessToken!.isNotEmpty;
   }
 
   bool get hasRefreshToken {
-    return _refreshToken != null &&
-        _refreshToken!.isNotEmpty;
+    return _refreshToken != null && _refreshToken!.isNotEmpty;
   }
 
   void updateTokens(
@@ -74,8 +72,7 @@ class SessionStore extends ChangeNotifier {
   }) {
     _accessToken = access;
 
-    if (refresh != null &&
-        refresh.isNotEmpty) {
+    if (refresh != null && refresh.isNotEmpty) {
       _refreshToken = refresh;
     }
 
@@ -84,6 +81,25 @@ class SessionStore extends ChangeNotifier {
 
   void updateUser(UserProfile user) {
     _user = user;
+
+    notifyListeners();
+  }
+
+  // ===========================================
+  // RESTORE SESSION / APP START
+  // ===========================================
+
+  Future<void> restoreSession() async {
+    final access = await SecureStorageService.getAccessToken();
+    final refresh = await SecureStorageService.getRefreshToken();
+
+    if (access != null && access.isNotEmpty) {
+      _accessToken = access;
+    }
+
+    if (refresh != null && refresh.isNotEmpty) {
+      _refreshToken = refresh;
+    }
 
     notifyListeners();
   }
@@ -109,16 +125,13 @@ class SessionStore extends ChangeNotifier {
   // USER PREFERENCES
   // ===========================================
 
-  EmieThemeMode _themeMode =
-      EmieThemeMode.dark;
+  EmieThemeMode _themeMode = EmieThemeMode.dark;
 
-  EmieTone _tone =
-      EmieTone.friendly;
+  EmieTone _tone = EmieTone.friendly;
 
   String _language = 'de';
 
-  EmieThemeMode get themeMode =>
-      _themeMode;
+  EmieThemeMode get themeMode => _themeMode;
 
   EmieTone get tone => _tone;
 
@@ -168,8 +181,7 @@ class SessionStore extends ChangeNotifier {
   }
 
   void setLanguage(String code) {
-    final normalized =
-        (code == 'de') ? 'de' : 'en';
+    final normalized = (code == 'de') ? 'de' : 'en';
 
     if (_language == normalized) return;
 

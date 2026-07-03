@@ -55,31 +55,34 @@ class _ChatViewState extends State<ChatScreen> {
   }
 
   Future<void> _send(BuildContext context) async {
-    final chat = context.read<ChatController>();
-    final text = _textController.text.trim();
+  final chat = context.read<ChatController>();
+  final text = _textController.text.trim();
 
-    if (text.isEmpty || chat.isSending) return;
+  if (text.isEmpty || chat.isSending) return;
 
-    setState(() => _uiHint = null);
+  // iPhone-Tastatur nach dem Senden automatisch schließen
+  FocusScope.of(context).unfocus();
 
-    _textController.clear();
+  setState(() => _uiHint = null);
 
-    await chat.send(text);
+  _textController.clear();
 
-    if (!mounted) return;
+  await chat.send(text);
 
-    final err = chat.error;
+  if (!mounted) return;
 
-    if (err != null) {
-      setState(
-        () => _uiHint = _t(
-          context,
-          de: 'Verbindung nicht stabil. Bitte erneut senden.',
-          en: 'Connection unstable. Please try again.',
-        ),
-      );
-    }
+  final err = chat.error;
+
+  if (err != null) {
+    setState(
+      () => _uiHint = _t(
+        context,
+        de: 'Verbindung nicht stabil. Bitte erneut senden.',
+        en: 'Connection unstable. Please try again.',
+      ),
+    );
   }
+}
 
   void _handleNewChat(BuildContext context) {
     final chat = context.read<ChatController>();
