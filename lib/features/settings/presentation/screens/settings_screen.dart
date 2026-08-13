@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../state/session_store.dart';
 import '../../../auth/presentation/screens/auth_screen.dart';
@@ -72,6 +73,32 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: t.comingSoon,
                     colors: c,
                     onTap: () {},
+                  ),
+                  _Divider(colors: c),
+                  _ActionTile(
+                    icon: Icons.delete_outline_rounded,
+                    title: t.deleteAccount,
+                    subtitle: t.requestDeletion,
+                    danger: true,
+                    colors: c,
+                    onTap: () async {
+                      final uri = Uri.parse(
+                        'https://emiso.ai/konto-loeschen.html',
+                      );
+
+                      final opened = await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+
+                      if (!opened && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(t.couldNotOpenDeletionPage),
+                          ),
+                        );
+                      }
+                    },
                   ),
                   _Divider(colors: c),
                   _ActionTile(
@@ -244,6 +271,12 @@ class _SettingsText {
   String get email => isDe ? 'E-Mail' : 'Email';
   String get changePassword => isDe ? 'Passwort ändern' : 'Change password';
   String get comingSoon => isDe ? 'Kommt bald' : 'Coming soon';
+  String get deleteAccount => isDe ? 'Konto löschen' : 'Delete account';
+  String get requestDeletion =>
+      isDe ? 'Kontolöschung anfordern' : 'Request account deletion';
+  String get couldNotOpenDeletionPage => isDe
+      ? 'Die Seite zur Kontolöschung konnte nicht geöffnet werden.'
+      : 'The account deletion page could not be opened.';
   String get logout => isDe ? 'Abmelden' : 'Log out';
   String get backToLogin => isDe ? 'Zurück zum Login' : 'Back to login';
   String get notLoaded => isDe ? 'Noch nicht geladen' : 'Not loaded yet';
