@@ -115,6 +115,25 @@ class AuthApi {
   }
 
   // -------------------------------------------
+  // • Token Refresh
+  //    Backend: POST /v1/auth/refresh
+  // -------------------------------------------
+  Future<TokenPair> refresh({
+    required String refreshToken,
+  }) async {
+    final res = await _dio.post(
+      '/v1/auth/refresh',
+      data: {
+        'refresh_token': refreshToken,
+      },
+    );
+
+    return TokenPair.fromJson(
+      res.data as Map<String, dynamic>,
+    );
+  }
+  
+  // -------------------------------------------
   // • Forgot Password
   //    Backend: POST /v1/auth/password/reset/start
   // -------------------------------------------

@@ -125,6 +125,31 @@ class AuthRepository {
   }
 
   // -------------------------------------------
+  // • Token Refresh
+  // -------------------------------------------
+  Future<void> refreshTokens() async {
+    final refreshToken = _session.refreshToken;
+
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw Exception('Kein Refresh-Token vorhanden.');
+    }
+
+    final tokens = await _api.refresh(
+      refreshToken: refreshToken,
+    );
+
+    _session.updateTokens(
+      tokens.accessToken,
+      refresh: tokens.refreshToken,
+    );
+
+    await SecureStorageService.saveTokens(
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    );
+  }
+  
+  // -------------------------------------------
   // • Logout
   // -------------------------------------------
   Future<void> logout() async {

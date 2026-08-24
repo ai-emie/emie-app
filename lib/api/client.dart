@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/config/env.dart';
+import '../core/storage/secure_storage.dart';
 import '../state/session_store.dart';
 
 class ApiClient {
@@ -42,33 +43,42 @@ class ApiClient {
           final session = SessionStore.instance;
 
           final token = session.accessToken;
+
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+
           options.headers['Content-Type'] = 'application/json';
           options.headers['Accept'] = 'application/json';
 
           if (kDebugMode) {
             debugPrint('➡️ [${options.method}] ${options.uri}');
+
             if (options.data != null) {
               debugPrint('   data=${options.data}');
             }
           }
 
-          // Wir gehen erstmal davon aus, dass wir online sind, wenn ein Request rausgeht
+          // Wir gehen erstmal davon aus, dass wir online sind,
+          // wenn ein Request rausgeht.
           session.setOnline(true);
 
           return handler.next(options);
         },
+
         onResponse: (response, handler) {
-          // Erfolgreiche Antwort → wir sind online
+          // Erfolgreiche Antwort → wir sind online.
           SessionStore.instance.setOnline(true);
 
           if (kDebugMode) {
-            debugPrint('✅ [${response.statusCode}] ${response.requestOptions.uri}');
+            debugPrint(
+              '✅ [${response.statusCode}] ${response.requestOptions.uri}',
+            );
           }
+
           return handler.next(response);
         },
+
         onError: (DioException e, handler) async {
           final statusCode = e.response?.statusCode;
           final req = e.requestOptions;
@@ -81,38 +91,51 @@ class ApiClient {
 
           final session = SessionStore.instance;
 
-          // Netzwerk-/Timeout-Fehler → Offline markieren
+          // Netzwerk-/Timeout-Fehler → Offline markieren.
           if (e.type == DioExceptionType.connectionError ||
               e.type == DioExceptionType.connectionTimeout ||
               e.type == DioExceptionType.receiveTimeout) {
             session.setOnline(false);
           } else {
-            // Andere Fehler → Verbindung zum Server besteht, also "online"
+            // Andere Fehler → Server ist erreichbar.
             session.setOnline(true);
           }
 
-          // Wenn kein 401 → Fehler normal weitergeben
+          // Kein 401 → Fehler normal weitergeben.
           if (statusCode != 401) {
             return handler.next(e);
           }
 
-          // Wenn der Fehler vom Refresh-Endpunkt selbst kommt → abbrechen
+          // =====================================================
+          //  • DIREKTER REFRESH-ENDPUNKT IST FEHLGESCHLAGEN
+          // =====================================================
+          // Wenn z. B. AuthRepository.refreshTokens() direkt
+          // /v1/auth/refresh aufruft und der Refresh-Token
+          // revoked / abgelaufen / ungültig ist, muss die tote
+          // Session vollständig entfernt werden.
           if (req.path.contains('/v1/auth/refresh')) {
+            await _clearInvalidAuth(session);
             return handler.next(e);
           }
 
           final refreshToken = session.refreshToken;
 
-          // Kein Refresh-Token vorhanden → User muss sich neu einloggen
+          // =====================================================
+          //  • KEIN REFRESH-TOKEN MEHR VORHANDEN
+          // =====================================================
           if (refreshToken == null || refreshToken.isEmpty) {
-            session.clear();
+            await _clearInvalidAuth(session);
             return handler.next(e);
           }
 
-          // Wenn dieser Request schon einmal als "retry" markiert wurde → keine Schleife
+          // =====================================================
+          //  • REQUEST WURDE BEREITS EINMAL WIEDERHOLT
+          // =====================================================
+          // Verhindert eine Endlosschleife bei dauerhaftem 401.
           final alreadyRetried = req.extra['retry'] == true;
+
           if (alreadyRetried) {
-            session.clear();
+            await _clearInvalidAuth(session);
             return handler.next(e);
           }
 
@@ -123,6 +146,8 @@ class ApiClient {
               debugPrint('🔁 Versuche Access-Token zu erneuern…');
             }
 
+            // Separates Dio ohne den normalen Interceptor,
+            // damit der Refresh selbst keine Refresh-Schleife auslöst.
             final refreshResponse = await _refreshDio.post(
               '/v1/auth/refresh',
               data: {
@@ -130,39 +155,64 @@ class ApiClient {
               },
             );
 
-            final data = refreshResponse.data as Map<String, dynamic>? ?? {};
+            final data =
+                refreshResponse.data as Map<String, dynamic>? ?? {};
+
             final newAccess = data['access_token'] as String?;
             final newRefresh = data['refresh_token'] as String?;
 
+            // ===================================================
+            //  • UNBRAUCHBARE REFRESH-ANTWORT
+            // ===================================================
             if (newAccess == null || newAccess.isEmpty) {
               if (kDebugMode) {
-                debugPrint('⚠️ Refresh-Antwort ohne access_token, Session wird gelöscht');
+                debugPrint(
+                  '⚠️ Refresh-Antwort ohne access_token, '
+                  'Auth wird vollständig gelöscht.',
+                );
               }
-              session.clear();
+
+              await _clearInvalidAuth(session);
               return handler.next(e);
             }
 
-            // Tokens aktualisieren
+            // ===================================================
+            //  • NEUE TOKENS ÜBERNEHMEN + DAUERHAFT SPEICHERN
+            // ===================================================
+            final finalRefreshToken = newRefresh ?? refreshToken;
+
             session.updateTokens(
               newAccess,
-              refresh: newRefresh ?? refreshToken,
+              refresh: finalRefreshToken,
             );
 
-            // Authorization-Header des ursprünglichen Requests ersetzen
+            await SecureStorageService.saveTokens(
+              accessToken: newAccess,
+              refreshToken: finalRefreshToken,
+            );
+
+            // Authorization-Header des ursprünglichen Requests ersetzen.
             req.headers['Authorization'] = 'Bearer $newAccess';
 
             if (kDebugMode) {
-              debugPrint('🔁 Wiederhole Request mit neuem Access-Token…');
+              debugPrint(
+                '🔁 Wiederhole Request mit neuem Access-Token…',
+              );
             }
 
             final cloneResponse = await _dio.fetch(req);
+
             return handler.resolve(cloneResponse);
           } catch (refreshError, stack) {
             if (kDebugMode) {
               debugPrint('💥 Refresh fehlgeschlagen: $refreshError');
               debugPrint(stack.toString());
             }
-            session.clear();
+
+            // Refresh fehlgeschlagen:
+            // tote Tokens aus RAM UND Secure Storage entfernen.
+            await _clearInvalidAuth(session);
+
             return handler.next(e);
           }
         },
@@ -170,7 +220,27 @@ class ApiClient {
     );
   }
 
+  // ===========================================================
+  //  • UNGÜLTIGE AUTH-DATEN VOLLSTÄNDIG LÖSCHEN
+  // ===========================================================
+  Future<void> _clearInvalidAuth(SessionStore session) async {
+    try {
+      await SecureStorageService.clearTokens();
+    } finally {
+      // Session wird auch dann geleert, wenn der Storage-Wipe
+      // unerwartet selbst einen Fehler wirft.
+      session.clear();
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '🧹 Ungültige Auth-Tokens aus Session und Secure Storage gelöscht.',
+      );
+    }
+  }
+
   static final ApiClient _instance = ApiClient._internal();
+
   factory ApiClient() => _instance;
 
   late final Dio _dio;
