@@ -132,12 +132,29 @@ class AuthApi {
       res.data as Map<String, dynamic>,
     );
   }
-  
+
+  // -------------------------------------------
+  // • Logout
+  //    Backend: POST /v1/auth/logout
+  // -------------------------------------------
+  Future<void> logout({
+    required String refreshToken,
+  }) async {
+    await _dio.post(
+      '/v1/auth/logout',
+      data: {
+        'refresh_token': refreshToken,
+      },
+    );
+  }
+
   // -------------------------------------------
   // • Forgot Password
   //    Backend: POST /v1/auth/password/reset/start
   // -------------------------------------------
-  Future<void> requestPasswordReset({required String email}) async {
+  Future<void> requestPasswordReset({
+    required String email,
+  }) async {
     await _dio.post(
       '/v1/auth/password/reset/start',
       data: {

@@ -52,10 +52,17 @@ class ApiClient {
           options.headers['Accept'] = 'application/json';
 
           if (kDebugMode) {
-            debugPrint('➡️ [${options.method}] ${options.uri}');
+            if (_isSensitiveAuthRequest(options)) {
+              // Bei Auth-Endpunkten niemals Body oder Query-Parameter loggen.
+              debugPrint(
+                '➡️ [${options.method}] ${options.path} [Auth-Daten ausgeblendet]',
+              );
+            } else {
+              debugPrint('➡️ [${options.method}] ${options.uri}');
 
-            if (options.data != null) {
-              debugPrint('   data=${options.data}');
+              if (options.data != null) {
+                debugPrint('   data=${options.data}');
+              }
             }
           }
 
@@ -71,9 +78,17 @@ class ApiClient {
           SessionStore.instance.setOnline(true);
 
           if (kDebugMode) {
-            debugPrint(
-              '✅ [${response.statusCode}] ${response.requestOptions.uri}',
-            );
+            final req = response.requestOptions;
+
+            if (_isSensitiveAuthRequest(req)) {
+              debugPrint(
+                '✅ [${response.statusCode}] ${req.path}',
+              );
+            } else {
+              debugPrint(
+                '✅ [${response.statusCode}] ${req.uri}',
+              );
+            }
           }
 
           return handler.next(response);
@@ -84,7 +99,16 @@ class ApiClient {
           final req = e.requestOptions;
 
           if (kDebugMode) {
-            debugPrint('❌ [${statusCode ?? '-'}] ${req.uri}');
+            if (_isSensitiveAuthRequest(req)) {
+              debugPrint(
+                '❌ [${statusCode ?? '-'}] ${req.path}',
+              );
+            } else {
+              debugPrint(
+                '❌ [${statusCode ?? '-'}] ${req.uri}',
+              );
+            }
+
             debugPrint('   type=${e.type}');
             debugPrint('   error=${e.message}');
           }
@@ -109,10 +133,6 @@ class ApiClient {
           // =====================================================
           //  • DIREKTER REFRESH-ENDPUNKT IST FEHLGESCHLAGEN
           // =====================================================
-          // Wenn z. B. AuthRepository.refreshTokens() direkt
-          // /v1/auth/refresh aufruft und der Refresh-Token
-          // revoked / abgelaufen / ungültig ist, muss die tote
-          // Session vollständig entfernt werden.
           if (req.path.contains('/v1/auth/refresh')) {
             await _clearInvalidAuth(session);
             return handler.next(e);
@@ -131,7 +151,6 @@ class ApiClient {
           // =====================================================
           //  • REQUEST WURDE BEREITS EINMAL WIEDERHOLT
           // =====================================================
-          // Verhindert eine Endlosschleife bei dauerhaftem 401.
           final alreadyRetried = req.extra['retry'] == true;
 
           if (alreadyRetried) {
@@ -218,6 +237,13 @@ class ApiClient {
         },
       ),
     );
+  }
+
+  // ===========================================================
+  //  • SENSIBLE AUTH-REQUESTS ERKENNEN
+  // ===========================================================
+  bool _isSensitiveAuthRequest(RequestOptions options) {
+    return options.path.startsWith('/v1/auth/');
   }
 
   // ===========================================================

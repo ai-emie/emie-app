@@ -148,13 +148,28 @@ class AuthRepository {
       refreshToken: tokens.refreshToken,
     );
   }
-  
+
   // -------------------------------------------
   // • Logout
   // -------------------------------------------
   Future<void> logout() async {
-    await SecureStorageService.clearTokens();
-    _session.clear();
+    final refreshToken = _session.refreshToken;
+
+    try {
+      // Refresh-Token zuerst serverseitig widerrufen.
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _api.logout(
+          refreshToken: refreshToken,
+        );
+      }
+    } catch (_) {
+      // Backend-/Netzwerkfehler dürfen den lokalen Logout
+      // niemals verhindern.
+    } finally {
+      // Lokale Tokens und Session werden garantiert gelöscht.
+      await SecureStorageService.clearTokens();
+      _session.clear();
+    }
   }
 
   // -------------------------------------------

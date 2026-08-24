@@ -1,14 +1,15 @@
-// ==============================================
+// ===============================================
 // Emie • Settings Screen
 // Konto • Erscheinungsbild • Sprache • Emie
 // Pfad: lib/features/settings/presentation/screens/settings_screen.dart
-// ==============================================
+// ===============================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../state/session_store.dart';
+import '../../../auth/controller/auth_controller.dart';
 import '../../../auth/presentation/screens/auth_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -107,8 +108,13 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: t.backToLogin,
                     danger: true,
                     colors: c,
-                    onTap: () {
-                      context.read<SessionStore>().clear();
+                    onTap: () async {
+                      await context.read<AuthController>().logout();
+
+                      if (!context.mounted) {
+                        return;
+                      }
+
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
                           builder: (_) => const AuthScreen(),
@@ -282,9 +288,13 @@ class _SettingsText {
   String get notLoaded => isDe ? 'Noch nicht geladen' : 'Not loaded yet';
 
   String get system => isDe ? 'System' : 'System';
-  String get systemSub => isDe ? 'Emie folgt deinem Gerät' : 'Emie follows your device';
-  String get lightSub => isDe ? 'Helles Design mit Gold-Akzent' : 'Light design with gold accent';
-  String get darkSub => isDe ? 'Dunkles Premium-Design' : 'Dark premium design';
+  String get systemSub =>
+      isDe ? 'Emie folgt deinem Gerät' : 'Emie follows your device';
+  String get lightSub => isDe
+      ? 'Helles Design mit Gold-Akzent'
+      : 'Light design with gold accent';
+  String get darkSub =>
+      isDe ? 'Dunkles Premium-Design' : 'Dark premium design';
 
   String get plusSub => isDe
       ? 'Mehr Tokens & früherer Feature-Zugang'
