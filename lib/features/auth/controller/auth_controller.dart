@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -52,9 +53,12 @@ class AuthController extends ChangeNotifier {
   }
 
   // -------------------------------------------
-  //  LOGIN MIT E-MAIL (spezifische Fehlertexte)
+  //  LOGIN MIT E-MAIL
   // -------------------------------------------
-  Future<bool> loginWithEmail(String email, String password) async {
+  Future<bool> loginWithEmail(
+    String email,
+    String password,
+  ) async {
     _setError(null);
     _setLoading(true);
 
@@ -67,7 +71,6 @@ class AuthController extends ChangeNotifier {
       final detailRaw = _extractDetail(e);
       final detail = detailRaw?.toLowerCase() ?? '';
 
-      // 401 = Auth-Fehler → eigene Texte, niemals generischer "nicht eingeloggt"-Text
       if (status == 401) {
         if (detail.contains('unknown email')) {
           _setError('Diese E-Mail ist nicht registriert.');
@@ -85,17 +88,23 @@ class AuthController extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        // ignore: avoid_print
-        print(
-            'loginWithEmail DioException: status=$status, detail=$detailRaw, apiError=${apiError.message}');
+        debugPrint(
+          'loginWithEmail DioException: '
+          'status=$status, detail=$detailRaw, '
+          'apiError=${apiError.message}',
+        );
       }
+
       return false;
     } catch (e) {
-      _setError('Login fehlgeschlagen. Bitte versuch es später erneut.');
+      _setError(
+        'Login fehlgeschlagen. Bitte versuch es später erneut.',
+      );
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('loginWithEmail unknown error: $e');
+        debugPrint('loginWithEmail unknown error: $e');
       }
+
       return false;
     } finally {
       _setLoading(false);
@@ -120,7 +129,6 @@ class AuthController extends ChangeNotifier {
         password: password,
       );
 
-      // Erfolg: UI zeigt SnackBar + wechselt auf Login-Modus
       return true;
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
@@ -143,19 +151,23 @@ class AuthController extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        // ignore: avoid_print
-        print(
-            'registerWithEmail DioException: status=$status, detail=$detailRaw, apiError=${apiError.message}');
+        debugPrint(
+          'registerWithEmail DioException: '
+          'status=$status, detail=$detailRaw, '
+          'apiError=${apiError.message}',
+        );
       }
+
       return false;
     } catch (e) {
       _setError(
         'Registrierung fehlgeschlagen. Versuche es später erneut.',
       );
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('registerWithEmail unknown error: $e');
+        debugPrint('registerWithEmail unknown error: $e');
       }
+
       return false;
     } finally {
       _setLoading(false);
@@ -163,7 +175,7 @@ class AuthController extends ChangeNotifier {
   }
 
   // -------------------------------------------
-  //  E-MAIL BESTÄTIGEN (Verify-Link)
+  //  E-MAIL BESTÄTIGEN
   // -------------------------------------------
   Future<bool> verifyEmail(String token) async {
     _setError(null);
@@ -179,9 +191,11 @@ class AuthController extends ChangeNotifier {
       final detail = detailRaw?.toLowerCase() ?? '';
 
       if (status == 400 || status == 401) {
-        if (detail.contains('expired') || detail.contains('invalid')) {
+        if (detail.contains('expired') ||
+            detail.contains('invalid')) {
           _setError(
-            'Bestätigung fehlgeschlagen. Der Link ist ungültig oder abgelaufen.',
+            'Bestätigung fehlgeschlagen. '
+            'Der Link ist ungültig oder abgelaufen.',
           );
         } else {
           _setError(apiError.message);
@@ -193,17 +207,23 @@ class AuthController extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        // ignore: avoid_print
-        print(
-            'verifyEmail DioException: status=$status, detail=$detailRaw, apiError=${apiError.message}');
+        debugPrint(
+          'verifyEmail DioException: '
+          'status=$status, detail=$detailRaw, '
+          'apiError=${apiError.message}',
+        );
       }
+
       return false;
     } catch (e) {
-      _setError('Bestätigung fehlgeschlagen. Link vielleicht abgelaufen.');
+      _setError(
+        'Bestätigung fehlgeschlagen. Link vielleicht abgelaufen.',
+      );
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('verifyEmail unknown error: $e');
+        debugPrint('verifyEmail unknown error: $e');
       }
+
       return false;
     } finally {
       _setLoading(false);
@@ -217,15 +237,17 @@ class AuthController extends ChangeNotifier {
     _setError(null);
 
     if (!Platform.isIOS && !Platform.isMacOS) {
-      _setError('Apple Login ist nur auf Apple-Geräten verfügbar.');
+      _setError(
+        'Apple Login ist nur auf Apple-Geräten verfügbar.',
+      );
       return false;
     }
 
     _setLoading(true);
 
     try {
-      // Apple-Dialog öffnen
-      final credential = await SignInWithApple.getAppleIDCredential(
+      final credential =
+          await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
@@ -233,38 +255,54 @@ class AuthController extends ChangeNotifier {
       );
 
       final idToken = credential.identityToken;
+
       if (idToken == null) {
-        _setError('Apple Login fehlgeschlagen (kein ID-Token erhalten).');
+        _setError(
+          'Apple Login fehlgeschlagen '
+          '(kein ID-Token erhalten).',
+        );
         return false;
       }
 
       await _repo.loginWithApple(idToken);
+
       return true;
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
         _setError('Apple Login abgebrochen.');
       } else {
-        _setError('Apple Login fehlgeschlagen. Versuche es später erneut.');
+        _setError(
+          'Apple Login fehlgeschlagen. '
+          'Versuche es später erneut.',
+        );
       }
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('loginWithApple auth error: $e');
+        debugPrint('loginWithApple auth error: $e');
       }
+
       return false;
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
       _setError(apiError.message);
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('loginWithApple DioException: ${apiError.message}');
+        debugPrint(
+          'loginWithApple DioException: ${apiError.message}',
+        );
       }
+
       return false;
     } catch (e) {
-      _setError('Apple Login fehlgeschlagen. Versuche es später erneut.');
+      _setError(
+        'Apple Login fehlgeschlagen. '
+        'Versuche es später erneut.',
+      );
+
       if (kDebugMode) {
-        // ignore: avoid_print
-        print('loginWithApple unknown error: $e');
+        debugPrint('loginWithApple unknown error: $e');
       }
+
       return false;
     } finally {
       _setLoading(false);
@@ -275,45 +313,201 @@ class AuthController extends ChangeNotifier {
   //  GOOGLE LOGIN (Android / iOS)
   // -------------------------------------------
   Future<bool> loginWithGoogle() async {
-  _setError(null);
-  _setLoading(true);
+    _setError(null);
+    _setLoading(true);
 
-  try {
-    // Google Sign-In konfigurieren
-    final googleSignIn = GoogleSignIn(
-      scopes: const ['email'],
-    );
+    try {
+      // ---------------------------------------
+      // Google Sign-In konfigurieren
+      // ---------------------------------------
+      //
+      // Android liest die Server/Web-Client-ID
+      // über google-services.json +
+      // com.google.gms.google-services.
+      //
+      // Deshalb hier bewusst keine Client-ID
+      // hart im Dart-Code hinterlegen.
 
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email'],
+      );
 
-    // Login anstoßen
-    final account = await googleSignIn.signIn();
-    if (account == null) {
-      _setError('Google Login abgebrochen.');
+      // ---------------------------------------
+      // Google Dialog öffnen
+      // ---------------------------------------
+
+      final account = await googleSignIn.signIn();
+
+      // User hat den Dialog freiwillig geschlossen.
+      //
+      // Das ist kein Fehler und wird deshalb
+      // UI-seitig komplett lautlos behandelt.
+      if (account == null) {
+        return false;
+      }
+
+      // ---------------------------------------
+      // Google ID-Token holen
+      // ---------------------------------------
+
+      final googleAuth = await account.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        _setError(
+          'Google-Anmeldung konnte nicht abgeschlossen werden. '
+          'Bitte versuch es erneut.',
+        );
+
+        if (kDebugMode) {
+          debugPrint(
+            'Google Login: Google lieferte kein ID-Token.',
+          );
+        }
+
+        return false;
+      }
+
+      // ---------------------------------------
+      // ID-Token an Emie Backend
+      // ---------------------------------------
+      //
+      // POST /v1/auth/google
+      //
+      // Das Backend verifiziert:
+      // - Google-Signatur
+      // - issuer
+      // - audience / Web Client ID
+      //
+      // Danach speichert das Repository die
+      // Emie Access- und Refresh-Tokens und lädt
+      // den User in den SessionStore.
+
+      await _repo.loginWithGoogle(idToken);
+
+      return true;
+    } on PlatformException catch (e) {
+      // ---------------------------------------
+      // Google / Android Plugin Fehler
+      // ---------------------------------------
+
+      final code = e.code.toLowerCase();
+
+      // Echter User-Cancel:
+      // keine Fehlermeldung anzeigen.
+      if (code == GoogleSignIn.kSignInCanceledError ||
+          code == 'sign_in_canceled' ||
+          code == 'canceled' ||
+          code == 'cancelled') {
+        if (kDebugMode) {
+          debugPrint(
+            'Google Login vom Benutzer abgebrochen.',
+          );
+        }
+
+        return false;
+      }
+
+      // Netzwerkproblem
+      if (code == GoogleSignIn.kNetworkError ||
+          code.contains('network')) {
+        _setError(
+          'Keine Verbindung zu Google. '
+          'Bitte prüfe deine Internetverbindung.',
+        );
+      } else {
+        // Darunter fallen beispielsweise
+        // Google-Konfigurations- oder
+        // Play-Services-Probleme.
+        _setError(
+          'Google-Anmeldung ist gerade nicht verfügbar. '
+          'Bitte versuch es erneut.',
+        );
+      }
+
+      if (kDebugMode) {
+        debugPrint(
+          'Google PlatformException: '
+          'code=${e.code}, message=${e.message}',
+        );
+      }
+
       return false;
-    }
+    } on DioException catch (e) {
+      // ---------------------------------------
+      // Emie Backend / Netzwerk
+      // ---------------------------------------
 
-    // Tokens holen
-    final auth = await account.authentication;
-    final idToken = auth.idToken;
+      final status = e.response?.statusCode ?? 0;
+      final detail = _extractDetail(e);
 
-    if (idToken == null) {
-      _setError('Google Login fehlgeschlagen (kein ID-Token).');
+      final isConnectionError =
+          e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout;
+
+      if (isConnectionError) {
+        _setError(
+          'Keine Verbindung zu Emie. '
+          'Bitte prüfe deine Internetverbindung.',
+        );
+      } else if (status == 400 || status == 401) {
+        _setError(
+          'Google-Anmeldung konnte nicht verifiziert werden. '
+          'Bitte versuch es erneut.',
+        );
+      } else if (status >= 500) {
+        _setError(
+          'Emie ist gerade nicht erreichbar. '
+          'Bitte versuch es später erneut.',
+        );
+      } else {
+        final apiError = ApiError.fromDio(e);
+
+        _setError(
+          apiError.message.isNotEmpty
+              ? apiError.message
+              : 'Google-Anmeldung fehlgeschlagen.',
+        );
+      }
+
+      if (kDebugMode) {
+        debugPrint(
+          'Google Backend DioException: '
+          'status=$status, detail=$detail, type=${e.type}',
+        );
+      }
+
       return false;
+    } on SocketException catch (e) {
+      _setError(
+        'Keine Internetverbindung. '
+        'Bitte prüfe deine Verbindung.',
+      );
+
+      if (kDebugMode) {
+        debugPrint('Google SocketException: $e');
+      }
+
+      return false;
+    } catch (e, st) {
+      _setError(
+        'Google-Anmeldung fehlgeschlagen. '
+        'Bitte versuch es erneut.',
+      );
+
+      if (kDebugMode) {
+        debugPrint(
+          'Google Login unbekannter Fehler: $e\n$st',
+        );
+      }
+
+      return false;
+    } finally {
+      _setLoading(false);
     }
-
-    // An Backend schicken → /v1/auth/google
-    await _repo.loginWithGoogle(idToken);
-
-    return true;
-
-  } catch (e, st) {
-    debugPrint('Google Login Error: $e\n$st');
-    _setError('Google Login fehlgeschlagen.');
-    return false;
-  } finally {
-    _setLoading(false);
   }
-}
 
   // -------------------------------------------
   //  APP BOOTSTRAP / SESSION WIEDERHERSTELLEN
@@ -324,83 +518,83 @@ class AuthController extends ChangeNotifier {
     session.beginBootstrap();
 
     try {
-      // 1) Gespeicherte Tokens aus Secure Storage laden
+      // 1) Gespeicherte Tokens laden
       await session.restoreSession();
 
       final hasAccess =
-          session.accessToken != null && session.accessToken!.isNotEmpty;
+          session.accessToken != null &&
+              session.accessToken!.isNotEmpty;
 
       final hasRefresh = session.hasRefreshToken;
 
-      // 2) Gar keine Tokens vorhanden → Login
+      // 2) Gar keine Tokens → Login
       if (!hasAccess && !hasRefresh) {
         return;
       }
 
       // 3) Profil laden.
       //
-      // Falls der Access-Token abgelaufen ist, übernimmt unser
-      // Dio-Interceptor automatisch:
+      // Falls der Access-Token abgelaufen ist,
+      // übernimmt der Dio-Interceptor:
       //
       // 401
       // → /v1/auth/refresh
       // → neue Tokens speichern
       // → /v1/me erneut ausführen
       //
-      // Falls auch der Refresh fehlschlägt, löscht Step 8
-      // Secure Storage + Session vollständig.
+      // Falls auch Refresh fehlschlägt,
+      // löscht Step 8 Storage + Session.
+
       await _repo.refreshProfile();
     } on DioException catch (e) {
       if (kDebugMode) {
         debugPrint(
           'Bootstrap Session fehlgeschlagen: '
-          'status=${e.response?.statusCode}, error=${e.message}',
+          'status=${e.response?.statusCode}, '
+          'error=${e.message}',
         );
       }
-
-      // Bei 401 wurde die tote Session bereits zentral
-      // vom Auth-Interceptor vollständig gelöscht.
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Bootstrap Session unbekannter Fehler: $e');
+        debugPrint(
+          'Bootstrap Session unbekannter Fehler: $e',
+        );
       }
     } finally {
-      // Egal wie der Check endet:
-      // Die App darf danach Loading verlassen.
       session.finishBootstrap();
     }
   }
 
-// -------------------------------------------
-//  LOGOUT
-// -------------------------------------------
-Future<void> logout() async {
-  // 1) Google Sign-In abmelden (falls genutzt)
-  try {
-    final googleSignIn = GoogleSignIn(
-      scopes: const ['email'],
-    );
+  // -------------------------------------------
+  //  LOGOUT
+  // -------------------------------------------
+  Future<void> logout() async {
+    // 1) Google Sign-In lokal abmelden
+    try {
+      final googleSignIn = GoogleSignIn(
+        scopes: const ['email'],
+      );
 
-    await googleSignIn.signOut();
+      await googleSignIn.signOut();
 
-    // Optional härter, falls Google lokal hängen bleibt:
-    // await googleSignIn.disconnect();
-  } catch (e) {
-    if (kDebugMode) {
-      debugPrint('Google SignOut Fehler: $e');
+      // Optional härter:
+      // await googleSignIn.disconnect();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Google SignOut Fehler: $e');
+      }
     }
+
+    // 2) Emie-Session + Secure Storage löschen
+    await _repo.logout();
+
+    // 3) Fehlerstatus zurücksetzen
+    _setError(null);
+    notifyListeners();
   }
 
-  // 2) Emie-Session + Secure Storage löschen
-  await _repo.logout();
-
-  // 3) Fehlerstatus zurücksetzen + UI informieren
-  _setError(null);
-  notifyListeners();
-}
-
   // -------------------------------------------
-  //  Forgot Password (Reset via Mail)
+  //  Forgot Password
   // -------------------------------------------
   Future<bool> requestPasswordReset(String email) async {
     _setLoading(true);
@@ -412,10 +606,12 @@ Future<void> logout() async {
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
 
-      // Wichtig: keine Info-Leaks. Immer generisch bleiben.
-      _setError(apiError.message.isNotEmpty
-          ? apiError.message
-          : 'Reset aktuell nicht verfügbar.');
+      _setError(
+        apiError.message.isNotEmpty
+            ? apiError.message
+            : 'Reset aktuell nicht verfügbar.',
+      );
+
       return false;
     } catch (_) {
       _setError('Reset aktuell nicht verfügbar.');
@@ -424,5 +620,4 @@ Future<void> logout() async {
       _setLoading(false);
     }
   }
-
 }
