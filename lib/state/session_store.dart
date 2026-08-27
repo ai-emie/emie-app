@@ -28,6 +28,24 @@ class SessionStore extends ChangeNotifier {
   static final SessionStore instance = SessionStore._internal();
 
   // ===========================================
+  // APP BOOTSTRAP
+  // ===========================================
+
+  bool _isBootstrapping = true;
+
+  bool get isBootstrapping => _isBootstrapping;
+
+  void beginBootstrap() {
+    _isBootstrapping = true;
+    notifyListeners();
+  }
+
+  void finishBootstrap() {
+    _isBootstrapping = false;
+    notifyListeners();
+  }
+
+  // ===========================================
   // ONLINE / OFFLINE
   // ===========================================
 
@@ -59,7 +77,9 @@ class SessionStore extends ChangeNotifier {
   UserProfile? get user => _user;
 
   bool get isAuthenticated {
-    return _accessToken != null && _accessToken!.isNotEmpty;
+    return _accessToken != null &&
+        _accessToken!.isNotEmpty &&
+        _user != null;
   }
 
   bool get hasRefreshToken {

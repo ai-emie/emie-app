@@ -47,7 +47,16 @@ class EmieApp extends StatelessWidget {
         // =====================================
 
         ChangeNotifierProvider<AuthController>(
-          create: (_) => AuthController(),
+          lazy: false,
+          create: (_) {
+            final controller = AuthController();
+
+            Future.microtask(
+              controller.bootstrapSession,
+            );
+
+            return controller;
+          },
         ),
 
         // =====================================
@@ -97,10 +106,8 @@ class EmieApp extends StatelessWidget {
 
               useMaterial3: true,
 
-              colorScheme:
-                  ColorScheme.fromSeed(
-                seedColor:
-                    const Color(0xFFFFD37F),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFFFD37F),
                 brightness: Brightness.light,
               ),
 
@@ -124,10 +131,8 @@ class EmieApp extends StatelessWidget {
 
               useMaterial3: true,
 
-              colorScheme:
-                  ColorScheme.fromSeed(
-                seedColor:
-                    const Color(0xFFFFD37F),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFFFD37F),
                 brightness: Brightness.dark,
               ),
 
@@ -146,11 +151,31 @@ class EmieApp extends StatelessWidget {
             // START SCREEN
             // =================================
 
-            home: session.isAuthenticated
-                ? const MainShell()
-                : const AuthScreen(),
+            home: session.isBootstrapping
+                ? const _BootstrapScreen()
+                : session.isAuthenticated &&
+                        session.user != null
+                    ? const MainShell()
+                    : const AuthScreen(),
           );
         },
+      ),
+    );
+  }
+}
+
+// ===============================================
+// BOOTSTRAP / LOADING SCREEN
+// ===============================================
+
+class _BootstrapScreen extends StatelessWidget {
+  const _BootstrapScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
       ),
     );
   }

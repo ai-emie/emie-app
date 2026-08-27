@@ -11,8 +11,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../api/api_error.dart';
-import '../../../core/config/env.dart';
 import '../../../data/auth/auth_repository.dart';
+import '../../../state/session_store.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController() : _repo = AuthRepository();
@@ -314,6 +314,62 @@ class AuthController extends ChangeNotifier {
     _setLoading(false);
   }
 }
+
+  // -------------------------------------------
+  //  APP BOOTSTRAP / SESSION WIEDERHERSTELLEN
+  // -------------------------------------------
+  Future<void> bootstrapSession() async {
+    final session = SessionStore.instance;
+
+    session.beginBootstrap();
+
+    try {
+      // 1) Gespeicherte Tokens aus Secure Storage laden
+      await session.restoreSession();
+
+      final hasAccess =
+          session.accessToken != null && session.accessToken!.isNotEmpty;
+
+      final hasRefresh = session.hasRefreshToken;
+
+      // 2) Gar keine Tokens vorhanden → Login
+      if (!hasAccess && !hasRefresh) {
+        return;
+      }
+
+      // 3) Profil laden.
+      //
+      // Falls der Access-Token abgelaufen ist, übernimmt unser
+      // Dio-Interceptor automatisch:
+      //
+      // 401
+      // → /v1/auth/refresh
+      // → neue Tokens speichern
+      // → /v1/me erneut ausführen
+      //
+      // Falls auch der Refresh fehlschlägt, löscht Step 8
+      // Secure Storage + Session vollständig.
+      await _repo.refreshProfile();
+    } on DioException catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          'Bootstrap Session fehlgeschlagen: '
+          'status=${e.response?.statusCode}, error=${e.message}',
+        );
+      }
+
+      // Bei 401 wurde die tote Session bereits zentral
+      // vom Auth-Interceptor vollständig gelöscht.
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Bootstrap Session unbekannter Fehler: $e');
+      }
+    } finally {
+      // Egal wie der Check endet:
+      // Die App darf danach Loading verlassen.
+      session.finishBootstrap();
+    }
+  }
 
 // -------------------------------------------
 //  LOGOUT
