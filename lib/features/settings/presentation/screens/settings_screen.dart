@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../state/session_store.dart';
 import '../../../auth/controller/auth_controller.dart';
-import '../../../auth/presentation/screens/auth_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -109,18 +108,13 @@ class SettingsScreen extends StatelessWidget {
                     danger: true,
                     colors: c,
                     onTap: () async {
+                      // Keine Navigation hier.
+                      //
+                      // logout() löscht die Session.
+                      // app.dart reagiert auf SessionStore
+                      // und wechselt den Root automatisch
+                      // vom MainShell zum AuthScreen.
                       await context.read<AuthController>().logout();
-
-                      if (!context.mounted) {
-                        return;
-                      }
-
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => const AuthScreen(),
-                        ),
-                        (route) => false,
-                      );
                     },
                   ),
                 ],

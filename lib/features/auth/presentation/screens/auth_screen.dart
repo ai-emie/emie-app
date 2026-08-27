@@ -8,9 +8,7 @@ import 'package:provider/provider.dart';
 
 import 'forgot_password_screen.dart';
 
-import '../../../home/presentation/screens/home_screen.dart';
 import '../../controller/auth_controller.dart';
-import '../../../../state/session_store.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -44,7 +42,6 @@ class _AuthScreenState extends State<AuthScreen> {
   // -----------------------------------------------
   static const _bg = Color(0xFF050307);
   static const _surface = Color(0xFF141116);
-  static const _surface2 = Color(0xFF0C0913);
   static const _gold = Color(0xFF8A6117);
   static const _champagne = Color(0xFFFCF6BA);
   static const _muted = Color(0xFF8E8B85);
@@ -73,27 +70,29 @@ class _AuthScreenState extends State<AuthScreen> {
     final password = _passwordController.text.trim();
 
     if (_isLoginMode) {
-      final success = await auth.loginWithEmail(email, password);
+      // Keine Navigation hier.
+      //
+      // Der erfolgreiche Login aktualisiert den SessionStore.
+      // Die Root-Navigation in app.dart reagiert darauf und
+      // wechselt automatisch vom AuthScreen zum MainShell.
+      await auth.loginWithEmail(email, password);
+      return;
+    }
 
-      if (!mounted) return;
+    final success = await auth.registerWithEmail(
+      name,
+      email,
+      password,
+    );
 
-      if (success) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } else {
-      final success = await auth.registerWithEmail(name, email, password);
+    if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (success) {
-        setState(() {
-          _uiHint =
-              'Registrierung erfolgreich. Bitte bestätige deine E-Mail und logge dich danach ein.';
-          _isLoginMode = true;
-        });
-      }
+    if (success) {
+      setState(() {
+        _uiHint =
+            'Registrierung erfolgreich. Bitte bestätige deine E-Mail und logge dich danach ein.';
+        _isLoginMode = true;
+      });
     }
   }
 
@@ -103,11 +102,6 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final session = context.watch<SessionStore>();
-
-    if (session.isAuthenticated) {
-      return const HomeScreen();
-    }
 
     return Scaffold(
       backgroundColor: _bg,
@@ -301,7 +295,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   icon: Icons.person_outline_rounded,
                   validator: (value) {
                     final text = value?.trim() ?? '';
-                    if (text.isEmpty) return 'Bitte deinen Namen eingeben.';
+                    if (text.isEmpty) {
+                      return 'Bitte deinen Namen eingeben.';
+                    }
                     return null;
                   },
                 ),
@@ -340,7 +336,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     color: _champagne.withOpacity(0.42),
                   ),
                   onPressed: () {
-                    setState(() => _passwordVisible = !_passwordVisible);
+                    setState(
+                      () => _passwordVisible = !_passwordVisible,
+                    );
                   },
                 ),
                 validator: (value) {
@@ -362,7 +360,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         : () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const ForgotPasswordScreen(),
+                                builder: (_) =>
+                                    const ForgotPasswordScreen(),
                               ),
                             );
                           },
@@ -403,7 +402,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   validator: (value) {
                     final text = value ?? '';
-                    if (text.isEmpty) return 'Bitte Passwort bestätigen.';
+                    if (text.isEmpty) {
+                      return 'Bitte Passwort bestätigen.';
+                    }
                     if (text != _passwordController.text) {
                       return 'Passwörter stimmen nicht überein.';
                     }
@@ -452,7 +453,9 @@ class _AuthScreenState extends State<AuthScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: auth.isLoading ? null : () => _submit(auth),
+                  onPressed: auth.isLoading
+                      ? null
+                      : () => _submit(auth),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
@@ -475,7 +478,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(
                                     Color(0xFF17130C),
                                   ),
                                 ),
@@ -491,7 +495,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             ],
                           )
                         : Text(
-                            _isLoginMode ? 'Einloggen' : 'Registrieren',
+                            _isLoginMode
+                                ? 'Einloggen'
+                                : 'Registrieren',
                             key: const ValueKey('btn_text'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
@@ -651,15 +657,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 onPressed: auth.isLoading
                     ? null
                     : () async {
-                        final success = await auth.loginWithApple();
-                        if (!mounted) return;
-                        if (success) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const HomeScreen(),
-                            ),
-                          );
-                        }
+                        // Keine Navigation hier.
+                        // app.dart reagiert auf den SessionStore.
+                        await auth.loginWithApple();
                       },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -704,15 +704,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 onPressed: auth.isLoading
                     ? null
                     : () async {
-                        final success = await auth.loginWithGoogle();
-                        if (!mounted) return;
-                        if (success) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const HomeScreen(),
-                            ),
-                          );
-                        }
+                        // Keine Navigation hier.
+                        // app.dart reagiert auf den SessionStore.
+                        await auth.loginWithGoogle();
                       },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),

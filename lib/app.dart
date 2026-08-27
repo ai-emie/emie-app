@@ -33,7 +33,6 @@ class EmieApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-
         // =====================================
         // SESSION STORE
         // =====================================
@@ -70,7 +69,35 @@ class EmieApp extends StatelessWidget {
 
       child: Consumer<SessionStore>(
         builder: (context, session, _) {
+          // ===================================
+          // ROOT NAVIGATION STATE
+          // ===================================
+          //
+          // Der Key ändert sich ausschließlich dann,
+          // wenn sich der Auth-Zweig der App ändert.
+          //
+          // Dadurch wird der komplette Root-Navigator
+          // neu aufgebaut und ein alter Navigation-Stack
+          // kann nicht über Login / Logout hinweg bestehen.
+          //
+          // Theme- oder Sprachänderungen verändern diesen
+          // Key nicht und behalten daher den normalen Stack.
+
+          final String rootNavigationState;
+
+          if (session.isBootstrapping) {
+            rootNavigationState = 'bootstrap';
+          } else if (session.isAuthenticated) {
+            rootNavigationState = 'authenticated';
+          } else {
+            rootNavigationState = 'unauthenticated';
+          }
+
           return MaterialApp(
+            key: ValueKey<String>(
+              'emie-root-$rootNavigationState',
+            ),
+
             title: 'Emie',
 
             debugShowCheckedModeBanner: false,
@@ -148,13 +175,18 @@ class EmieApp extends StatelessWidget {
             ),
 
             // =================================
-            // START SCREEN
+            // ROOT AUTH GUARD
             // =================================
+            //
+            // Die Navigation Auth ↔ Main erfolgt
+            // ausschließlich anhand des SessionStore.
+            //
+            // AuthScreen und MainShell navigieren
+            // nicht gegenseitig aufeinander.
 
             home: session.isBootstrapping
                 ? const _BootstrapScreen()
-                : session.isAuthenticated &&
-                        session.user != null
+                : session.isAuthenticated
                     ? const MainShell()
                     : const AuthScreen(),
           );
