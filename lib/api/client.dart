@@ -22,10 +22,15 @@ class ApiClient {
     );
 
     // ===========================================================
-    //  • DEBUG: Welche Base-URL nutzt die App wirklich?
+    //  • DEBUG: Aktive Umgebung
     // ===========================================================
+    //
+    // Ausschließlich im Debug-Build.
+    // Keine Tokens, Header, Payloads oder Query-Parameter.
     if (kDebugMode) {
-      debugPrint('🌐 EMIE_ENV=${Env.current} baseUrl=${Env.apiBaseUrl}');
+      debugPrint(
+        '🌐 EMIE_ENV=${Env.current} baseUrl=${Env.apiBaseUrl}',
+      );
     }
 
     _refreshDio = Dio(
@@ -39,6 +44,9 @@ class ApiClient {
 
     _dio.interceptors.add(
       InterceptorsWrapper(
+        // =======================================================
+        //  • REQUEST
+        // =======================================================
         onRequest: (options, handler) async {
           final session = SessionStore.instance;
 
@@ -51,18 +59,28 @@ class ApiClient {
           options.headers['Content-Type'] = 'application/json';
           options.headers['Accept'] = 'application/json';
 
+          // -----------------------------------------------------
+          // Sicheres Debug-Logging
+          // -----------------------------------------------------
+          //
+          // Niemals loggen:
+          // - Authorization Header
+          // - Access-/Refresh-Token
+          // - Passwörter
+          // - Google-/Apple-ID-Tokens
+          // - Request Body
+          // - Query-Parameter
           if (kDebugMode) {
             if (_isSensitiveAuthRequest(options)) {
-              // Bei Auth-Endpunkten niemals Body oder Query-Parameter loggen.
               debugPrint(
-                '➡️ [${options.method}] ${options.path} [Auth-Daten ausgeblendet]',
+                '➡️ [${options.method}] '
+                '${_safePath(options)} '
+                '[Auth-Daten ausgeblendet]',
               );
             } else {
-              debugPrint('➡️ [${options.method}] ${options.uri}');
-
-              if (options.data != null) {
-                debugPrint('   data=${options.data}');
-              }
+              debugPrint(
+                '➡️ [${options.method}] ${_safePath(options)}',
+              );
             }
           }
 
@@ -73,6 +91,9 @@ class ApiClient {
           return handler.next(options);
         },
 
+        // =======================================================
+        //  • RESPONSE
+        // =======================================================
         onResponse: (response, handler) {
           // Erfolgreiche Antwort → wir sind online.
           SessionStore.instance.setOnline(true);
@@ -80,48 +101,46 @@ class ApiClient {
           if (kDebugMode) {
             final req = response.requestOptions;
 
-            if (_isSensitiveAuthRequest(req)) {
-              debugPrint(
-                '✅ [${response.statusCode}] ${req.path}',
-              );
-            } else {
-              debugPrint(
-                '✅ [${response.statusCode}] ${req.uri}',
-              );
-            }
+            debugPrint(
+              '✅ [${response.statusCode}] ${_safePath(req)}',
+            );
           }
 
           return handler.next(response);
         },
 
+        // =======================================================
+        //  • ERROR
+        // =======================================================
         onError: (DioException e, handler) async {
           final statusCode = e.response?.statusCode;
           final req = e.requestOptions;
 
           if (kDebugMode) {
-            if (_isSensitiveAuthRequest(req)) {
-              debugPrint(
-                '❌ [${statusCode ?? '-'}] ${req.path}',
-              );
-            } else {
-              debugPrint(
-                '❌ [${statusCode ?? '-'}] ${req.uri}',
-              );
-            }
+            debugPrint(
+              '❌ [${statusCode ?? '-'}] ${_safePath(req)}',
+            );
 
-            debugPrint('   type=${e.type}');
-            debugPrint('   error=${e.message}');
+            // Nur Fehlertyp loggen.
+            // Keine komplette Dio-Fehlermeldung, da deren Inhalt
+            // von der Bibliothek abhängt und später Request-Daten
+            // enthalten könnte.
+            debugPrint(
+              '   type=${e.type}',
+            );
           }
 
           final session = SessionStore.instance;
 
-          // Netzwerk-/Timeout-Fehler → Offline markieren.
+          // -----------------------------------------------------
+          // Netzwerk-/Timeout-Fehler → Offline markieren
+          // -----------------------------------------------------
           if (e.type == DioExceptionType.connectionError ||
               e.type == DioExceptionType.connectionTimeout ||
               e.type == DioExceptionType.receiveTimeout) {
             session.setOnline(false);
           } else {
-            // Andere Fehler → Server ist erreichbar.
+            // Andere Fehler → Server ist grundsätzlich erreichbar.
             session.setOnline(true);
           }
 
@@ -151,6 +170,8 @@ class ApiClient {
           // =====================================================
           //  • REQUEST WURDE BEREITS EINMAL WIEDERHOLT
           // =====================================================
+          //
+          // Verhindert eine Endlosschleife bei dauerhaftem 401.
           final alreadyRetried = req.extra['retry'] == true;
 
           if (alreadyRetried) {
@@ -162,7 +183,9 @@ class ApiClient {
             req.extra['retry'] = true;
 
             if (kDebugMode) {
-              debugPrint('🔁 Versuche Access-Token zu erneuern…');
+              debugPrint(
+                '🔁 Versuche Access-Token zu erneuern…',
+              );
             }
 
             // Separates Dio ohne den normalen Interceptor,
@@ -192,13 +215,15 @@ class ApiClient {
               }
 
               await _clearInvalidAuth(session);
+
               return handler.next(e);
             }
 
             // ===================================================
             //  • NEUE TOKENS ÜBERNEHMEN + DAUERHAFT SPEICHERN
             // ===================================================
-            final finalRefreshToken = newRefresh ?? refreshToken;
+            final finalRefreshToken =
+                newRefresh ?? refreshToken;
 
             session.updateTokens(
               newAccess,
@@ -210,8 +235,10 @@ class ApiClient {
               refreshToken: finalRefreshToken,
             );
 
-            // Authorization-Header des ursprünglichen Requests ersetzen.
-            req.headers['Authorization'] = 'Bearer $newAccess';
+            // Authorization-Header des ursprünglichen Requests
+            // durch den neuen Access-Token ersetzen.
+            req.headers['Authorization'] =
+                'Bearer $newAccess';
 
             if (kDebugMode) {
               debugPrint(
@@ -219,13 +246,18 @@ class ApiClient {
               );
             }
 
-            final cloneResponse = await _dio.fetch(req);
+            final cloneResponse =
+                await _dio.fetch(req);
 
             return handler.resolve(cloneResponse);
-          } catch (refreshError, stack) {
+          } catch (refreshError) {
             if (kDebugMode) {
-              debugPrint('💥 Refresh fehlgeschlagen: $refreshError');
-              debugPrint(stack.toString());
+              // Nur den Error-Typ ausgeben.
+              // Keine Exception-Details oder Stacktraces.
+              debugPrint(
+                '💥 Refresh fehlgeschlagen '
+                '(${refreshError.runtimeType}).',
+              );
             }
 
             // Refresh fehlgeschlagen:
@@ -242,14 +274,36 @@ class ApiClient {
   // ===========================================================
   //  • SENSIBLE AUTH-REQUESTS ERKENNEN
   // ===========================================================
-  bool _isSensitiveAuthRequest(RequestOptions options) {
+  bool _isSensitiveAuthRequest(
+    RequestOptions options,
+  ) {
     return options.path.startsWith('/v1/auth/');
+  }
+
+  // ===========================================================
+  //  • SICHERER LOG-PFAD
+  // ===========================================================
+  //
+  // Bewusst nur der URL-Pfad.
+  // Query-Parameter werden niemals ins Log geschrieben.
+  String _safePath(
+    RequestOptions options,
+  ) {
+    final path = options.uri.path;
+
+    if (path.isNotEmpty) {
+      return path;
+    }
+
+    return options.path;
   }
 
   // ===========================================================
   //  • UNGÜLTIGE AUTH-DATEN VOLLSTÄNDIG LÖSCHEN
   // ===========================================================
-  Future<void> _clearInvalidAuth(SessionStore session) async {
+  Future<void> _clearInvalidAuth(
+    SessionStore session,
+  ) async {
     try {
       await SecureStorageService.clearTokens();
     } finally {
@@ -260,12 +314,14 @@ class ApiClient {
 
     if (kDebugMode) {
       debugPrint(
-        '🧹 Ungültige Auth-Tokens aus Session und Secure Storage gelöscht.',
+        '🧹 Ungültige Auth-Tokens aus Session und '
+        'Secure Storage gelöscht.',
       );
     }
   }
 
-  static final ApiClient _instance = ApiClient._internal();
+  static final ApiClient _instance =
+      ApiClient._internal();
 
   factory ApiClient() => _instance;
 

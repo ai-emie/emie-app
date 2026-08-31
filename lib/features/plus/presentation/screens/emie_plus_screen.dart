@@ -11,9 +11,6 @@ class EmiePlusScreen extends StatelessWidget {
   static const Color _bg = Color(0xFF050307);
   static const Color _bg2 = Color(0xFF0A0712);
 
-  static const Color _card = Color(0xFFFCF8F1);
-
-  static const Color _gold = Color(0xFF8A6117);
   static const Color _champagne = Color(0xFFFCF6BA);
 
   @override

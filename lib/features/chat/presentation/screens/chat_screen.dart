@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../data/chat/chat_models.dart';
+import '../../../../data/chat/chat_session_models.dart';
 import '../../../../shared/widgets/emie_app_bar.dart';
 import '../../controller/chat_controller.dart';
 
@@ -22,12 +23,16 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  State<ChatScreen> createState() => _ChatViewState();
+  State<ChatScreen> createState() =>
+      _ChatViewState();
 }
 
 class _ChatViewState extends State<ChatScreen> {
-  final TextEditingController _textController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _textController =
+      TextEditingController();
+
+  final ScrollController _scrollController =
+      ScrollController();
 
   int _lastMessageCount = 0;
   String? _uiHint;
@@ -39,7 +44,8 @@ class _ChatViewState extends State<ChatScreen> {
     Future.microtask(() async {
       if (!mounted) return;
 
-      final chat = context.read<ChatController>();
+      final chat =
+          context.read<ChatController>();
 
       if (chat.sessions.isEmpty) {
         await chat.loadSessions();
@@ -51,41 +57,63 @@ class _ChatViewState extends State<ChatScreen> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+
     super.dispose();
   }
 
-  Future<void> _send(BuildContext context) async {
-  final chat = context.read<ChatController>();
-  final text = _textController.text.trim();
+  // ===============================================
+  // SEND
+  // ===============================================
 
-  if (text.isEmpty || chat.isSending) return;
+  Future<void> _send(
+    BuildContext context,
+  ) async {
+    final chat =
+        context.read<ChatController>();
 
-  // iPhone-Tastatur nach dem Senden automatisch schließen
-  FocusScope.of(context).unfocus();
+    final text =
+        _textController.text.trim();
 
-  setState(() => _uiHint = null);
+    if (text.isEmpty ||
+        chat.isSending) {
+      return;
+    }
 
-  _textController.clear();
+    // Tastatur nach dem Senden schließen.
+    FocusScope.of(context).unfocus();
 
-  await chat.send(text);
-
-  if (!mounted) return;
-
-  final err = chat.error;
-
-  if (err != null) {
     setState(
-      () => _uiHint = _t(
-        context,
-        de: 'Verbindung nicht stabil. Bitte erneut senden.',
-        en: 'Connection unstable. Please try again.',
-      ),
+      () => _uiHint = null,
     );
-  }
-}
 
-  void _handleNewChat(BuildContext context) {
-    final chat = context.read<ChatController>();
+    _textController.clear();
+
+    await chat.send(text);
+
+    if (!mounted) return;
+
+    final err = chat.error;
+
+    if (err != null) {
+      setState(
+        () => _uiHint = _t(
+          context,
+          de: 'Verbindung nicht stabil. Bitte erneut senden.',
+          en: 'Connection unstable. Please try again.',
+        ),
+      );
+    }
+  }
+
+  // ===============================================
+  // NEW CHAT
+  // ===============================================
+
+  void _handleNewChat(
+    BuildContext context,
+  ) {
+    final chat =
+        context.read<ChatController>();
 
     if (chat.isSending) {
       setState(
@@ -95,6 +123,7 @@ class _ChatViewState extends State<ChatScreen> {
           en: 'Please wait…',
         ),
       );
+
       return;
     }
 
@@ -102,35 +131,75 @@ class _ChatViewState extends State<ChatScreen> {
 
     if (!mounted) return;
 
-    setState(() => _uiHint = null);
+    setState(
+      () => _uiHint = null,
+    );
   }
 
-  void _autoScrollIfNeeded(int currentCount) {
-    if (currentCount == _lastMessageCount) return;
+  // ===============================================
+  // AUTO SCROLL
+  // ===============================================
 
-    _lastMessageCount = currentCount;
+  void _autoScrollIfNeeded(
+    int currentCount,
+  ) {
+    if (currentCount ==
+        _lastMessageCount) {
+      return;
+    }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+    _lastMessageCount =
+        currentCount;
 
-      final max = _scrollController.position.maxScrollExtent;
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+
+      final max =
+          _scrollController
+              .position
+              .maxScrollExtent;
 
       _scrollController.animateTo(
         max + 160,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
+        duration:
+            const Duration(
+          milliseconds: 260,
+        ),
+        curve:
+            Curves.easeOutCubic,
       );
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final chat = context.watch<ChatController>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final c = _ChatColors(isDark: isDark);
+  // ===============================================
+  // BUILD
+  // ===============================================
 
-    _autoScrollIfNeeded(chat.messages.length);
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final l10n =
+        context.l10n;
+
+    final chat =
+        context.watch<ChatController>();
+
+    final isDark =
+        Theme.of(context).brightness ==
+            Brightness.dark;
+
+    final c =
+        _ChatColors(
+      isDark: isDark,
+    );
+
+    _autoScrollIfNeeded(
+      chat.messages.length,
+    );
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -138,64 +207,105 @@ class _ChatViewState extends State<ChatScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: c.gradient,
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin:
+                Alignment.topCenter,
+            end:
+                Alignment.bottomCenter,
           ),
         ),
         child: Stack(
           children: [
-            _ChatLuxuryBackground(colors: c),
+            _ChatLuxuryBackground(
+              colors: c,
+            ),
             SafeArea(
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+                    padding:
+                        const EdgeInsets.fromLTRB(
+                      22,
+                      18,
+                      22,
+                      14,
+                    ),
                     child: EmieAppBar(
                       section: 'chat',
-                      icon: Icons.history_rounded,
-                      onIconTap: () => _showChatListSheet(context, c),
+                      icon:
+                          Icons.history_rounded,
+                      onIconTap: () =>
+                          _showChatListSheet(
+                        context,
+                        c,
+                      ),
                     ),
                   ),
+
                   Expanded(
-                    child: chat.messages.isEmpty
-                        ? _buildEmptyChat(c)
-                        : _buildMessageList(
-                            chat: chat,
-                            colors: c,
-                          ),
+                    child:
+                        chat.messages.isEmpty
+                            ? _buildEmptyChat(
+                                c,
+                              )
+                            : _buildMessageList(
+                                chat: chat,
+                                colors: c,
+                              ),
                   ),
+
                   if (_uiHint != null)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      padding:
+                          const EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        8,
+                      ),
                       child: Align(
-                        alignment: Alignment.centerLeft,
+                        alignment:
+                            Alignment.centerLeft,
                         child: Text(
                           _uiHint!,
                           style: TextStyle(
                             color: c.muted,
                             fontSize: 12,
-                            fontFamily: 'Inter',
+                            fontFamily:
+                                'Inter',
                           ),
                         ),
                       ),
                     ),
+
                   ChatInputBar(
-                    controller: _textController,
-                    onSend: () => _send(context),
+                    controller:
+                        _textController,
+                    onSend: () =>
+                        _send(context),
                     onSnack: (_) {},
-                    surface: c.surface,
-                    border: c.border,
-                    textPrimary: c.text,
-                    textSecondary: c.muted,
-                    bg: c.bg,
-                    hintText: l10n.askEmie,
-                    attachHintText: _t(
+                    surface:
+                        c.surface,
+                    border:
+                        c.border,
+                    textPrimary:
+                        c.text,
+                    textSecondary:
+                        c.muted,
+                    bg:
+                        c.bg,
+                    hintText:
+                        l10n.askEmie,
+                    attachHintText:
+                        _t(
                       context,
                       de: 'Anhänge sind aktuell nicht verfügbar.',
                       en: 'Attachments are not available yet.',
                     ),
                   ),
-                  const SizedBox(height: 88),
+
+                  const SizedBox(
+                    height: 88,
+                  ),
                 ],
               ),
             ),
@@ -205,11 +315,25 @@ class _ChatViewState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildEmptyChat(_ChatColors c) {
+  // ===============================================
+  // EMPTY CHAT
+  // ===============================================
+
+  Widget _buildEmptyChat(
+    _ChatColors c,
+  ) {
     return ListView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(22, 56, 22, 20),
+      controller:
+          _scrollController,
+      physics:
+          const BouncingScrollPhysics(),
+      padding:
+          const EdgeInsets.fromLTRB(
+        22,
+        56,
+        22,
+        20,
+      ),
       children: [
         Text(
           _t(
@@ -218,262 +342,701 @@ class _ChatViewState extends State<ChatScreen> {
             en: 'New chat.',
           ),
           style: TextStyle(
-            color: c.text.withOpacity(0.94),
+            color:
+                c.text.withOpacity(0.94),
             fontSize: 25,
             height: 1.18,
-            fontWeight: FontWeight.w400,
+            fontWeight:
+                FontWeight.w400,
             letterSpacing: -0.2,
-            fontFamily: 'Inter',
+            fontFamily:
+                'Inter',
           ),
         ),
       ],
     );
   }
 
+  // ===============================================
+  // MESSAGE LIST
+  // ===============================================
+
   Widget _buildMessageList({
     required ChatController chat,
     required _ChatColors colors,
   }) {
     return ListView.builder(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      itemCount: chat.messages.length,
-      itemBuilder: (context, index) {
-        final ChatMessage msg = chat.messages[index];
-        final text = msg.text;
-        final isUser = msg.role == 'user';
+      controller:
+          _scrollController,
+      physics:
+          const BouncingScrollPhysics(),
+      padding:
+          const EdgeInsets.fromLTRB(
+        18,
+        18,
+        18,
+        20,
+      ),
+      itemCount:
+          chat.messages.length,
+      itemBuilder: (
+        context,
+        index,
+      ) {
+        final ChatMessage msg =
+            chat.messages[index];
 
-        final messageKey = ValueKey(
+        final text =
+            msg.text;
+
+        final isUser =
+            msg.role == 'user';
+
+        final messageKey =
+            ValueKey(
           '${msg.role}_${msg.text.hashCode}_$index',
         );
 
-        if (!isUser && text.trim() == '…') {
+        // ---------------------------------------
+        // TYPING STATE
+        // ---------------------------------------
+
+        if (!isUser &&
+            text.trim() == '…') {
           return KeyedSubtree(
-            key: messageKey,
-            child: EmieTypingLine(
-              surface: colors.surface,
-              border: colors.border,
-              textSecondary: colors.muted,
+            key:
+                messageKey,
+            child:
+                EmieTypingLine(
+              surface:
+                  colors.surface,
+              border:
+                  colors.border,
+              textSecondary:
+                  colors.muted,
             ),
           );
         }
+
+        // ---------------------------------------
+        // USER MESSAGE
+        // ---------------------------------------
 
         if (isUser) {
           return KeyedSubtree(
-            key: messageKey,
-            child: _UserPlainMessage(
-              text: text,
-              colors: colors,
+            key:
+                messageKey,
+            child:
+                _UserPlainMessage(
+              text:
+                  text,
+              colors:
+                  colors,
             ),
           );
         }
 
+        // ---------------------------------------
+        // ASSISTANT MESSAGE
+        // ---------------------------------------
+
         return KeyedSubtree(
-          key: messageKey,
-          child: EmieResponseCard(
-            markdown: text,
-            bg: colors.bg,
-            surface: colors.surface,
-            border: colors.border,
-            textPrimary: colors.text,
-            textSecondary: colors.muted,
+          key:
+              messageKey,
+          child:
+              EmieResponseCard(
+            markdown:
+                text,
+            bg:
+                colors.bg,
+            surface:
+                colors.surface,
+            border:
+                colors.border,
+            textPrimary:
+                colors.text,
+            textSecondary:
+                colors.muted,
           ),
         );
       },
     );
   }
 
-  void _showChatListSheet(BuildContext context, _ChatColors c) {
-    final chat = context.read<ChatController>();
-    final searchController = TextEditingController();
+  // ===============================================
+  // CHAT HISTORY SHEET
+  // ===============================================
+
+  void _showChatListSheet(
+    BuildContext context,
+    _ChatColors c,
+  ) {
+    final searchController =
+        TextEditingController();
 
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
+      context:
+          context,
+      backgroundColor:
+          Colors.transparent,
+      isScrollControlled:
+          true,
+      builder: (
+        sheetContext,
+      ) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final query = searchController.text.trim().toLowerCase();
+          builder: (
+            sheetContext,
+            setSheetState,
+          ) {
+            return Consumer<ChatController>(
+              builder: (
+                context,
+                chat,
+                _,
+              ) {
+                final query =
+                    searchController
+                        .text
+                        .trim()
+                        .toLowerCase();
 
-            final sessions = chat.sessions.where((session) {
-              if (query.isEmpty) return true;
-              return session.id.toLowerCase().contains(query);
-            }).toList();
+                // Nur Sessions mit valider ID
+                // können geöffnet/gelöscht werden.
+                final validSessions =
+                    chat.sessions
+                        .where(
+                          (session) =>
+                              session.id
+                                  .trim()
+                                  .isNotEmpty,
+                        )
+                        .toList();
 
-            return ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(26),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  height: MediaQuery.of(context).size.height * 0.72,
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                  decoration: BoxDecoration(
-                    color: c.sheet,
-                    border: Border(
-                      top: BorderSide(
-                        color: c.border,
-                        width: 0.7,
-                      ),
-                    ),
+                // Suche primär über echten Backend-Titel.
+                // ID bleibt zusätzlich als technischer
+                // Suchanker möglich.
+                final sessions =
+                    validSessions
+                        .where(
+                          (session) {
+                    if (query.isEmpty) {
+                      return true;
+                    }
+
+                    final title =
+                        session.title
+                            .trim()
+                            .toLowerCase();
+
+                    final id =
+                        session.id
+                            .trim()
+                            .toLowerCase();
+
+                    return title.contains(
+                          query,
+                        ) ||
+                        id.contains(
+                          query,
+                        );
+                  }).toList();
+
+                return ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(
+                    top:
+                        Radius.circular(26),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  child: BackdropFilter(
+                    filter:
+                        ImageFilter.blur(
+                      sigmaX: 18,
+                      sigmaY: 18,
+                    ),
+                    child: Container(
+                      height:
+                          MediaQuery.of(
+                                context,
+                              )
+                                  .size
+                                  .height *
+                              0.72,
+                      padding:
+                          const EdgeInsets.fromLTRB(
+                        20,
+                        18,
+                        20,
+                        24,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            c.sheet,
+                        border:
+                            Border(
+                          top:
+                              BorderSide(
+                            color:
+                                c.border,
+                            width:
+                                0.7,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _t(
-                              context,
-                              de: 'Chats',
-                              en: 'Chats',
+                          // -----------------------------
+                          // HEADER
+                          // -----------------------------
+
+                          Row(
+                            children: [
+                              Text(
+                                _t(
+                                  context,
+                                  de:
+                                      'Chats',
+                                  en:
+                                      'Chats',
+                                ),
+                                style:
+                                    TextStyle(
+                                  color:
+                                      c.goldText,
+                                  fontSize:
+                                      24,
+                                  fontWeight:
+                                      FontWeight.w400,
+                                  letterSpacing:
+                                      0.2,
+                                  fontFamily:
+                                      'Inter',
+                                ),
+                              ),
+
+                              const Spacer(),
+
+                              IconButton(
+                                onPressed:
+                                    () {
+                                  Navigator.of(
+                                    sheetContext,
+                                  ).pop();
+
+                                  _handleNewChat(
+                                    context,
+                                  );
+                                },
+                                icon:
+                                    Icon(
+                                  Icons.add_rounded,
+                                  color:
+                                      c.goldText
+                                          .withOpacity(
+                                    0.82,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(
+                            height: 16,
+                          ),
+
+                          // -----------------------------
+                          // SEARCH
+                          // -----------------------------
+
+                          Container(
+                            height:
+                                46,
+                            padding:
+                                const EdgeInsets.symmetric(
+                              horizontal:
+                                  14,
                             ),
-                            style: TextStyle(
-                              color: c.goldText,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: 0.2,
-                              fontFamily: 'Inter',
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  c.surface,
+                              borderRadius:
+                                  BorderRadius.circular(
+                                18,
+                              ),
+                              border:
+                                  Border.all(
+                                color:
+                                    c.border,
+                                width:
+                                    0.7,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  color:
+                                      c.muted,
+                                  size:
+                                      19,
+                                ),
+
+                                const SizedBox(
+                                  width:
+                                      10,
+                                ),
+
+                                Expanded(
+                                  child:
+                                      TextField(
+                                    controller:
+                                        searchController,
+                                    onChanged:
+                                        (_) =>
+                                            setSheetState(
+                                      () {},
+                                    ),
+                                    style:
+                                        TextStyle(
+                                      color:
+                                          c.text,
+                                      fontSize:
+                                          14,
+                                      fontFamily:
+                                          'Inter',
+                                    ),
+                                    decoration:
+                                        InputDecoration(
+                                      hintText:
+                                          _t(
+                                        context,
+                                        de:
+                                            'Chats suchen...',
+                                        en:
+                                            'Search chats...',
+                                      ),
+                                      hintStyle:
+                                          TextStyle(
+                                        color:
+                                            c.muted,
+                                        fontSize:
+                                            14,
+                                        fontFamily:
+                                            'Inter',
+                                      ),
+                                      border:
+                                          InputBorder.none,
+                                      isCollapsed:
+                                          true,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              _handleNewChat(context);
-                            },
-                            icon: Icon(
-                              Icons.add_rounded,
-                              color: c.goldText.withOpacity(0.82),
+
+                          const SizedBox(
+                            height: 18,
+                          ),
+
+                          // -----------------------------
+                          // CONTENT
+                          // -----------------------------
+
+                          Expanded(
+                            child:
+                                _buildChatHistoryContent(
+                              context:
+                                  context,
+                              chat:
+                                  chat,
+                              sessions:
+                                  sessions,
+                              query:
+                                  query,
+                              colors:
+                                  c,
+                              closeSheet:
+                                  () {
+                                Navigator.of(
+                                  sheetContext,
+                                ).pop();
+                              },
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 46,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: c.border,
-                            width: 0.7,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.search_rounded,
-                              color: c.muted,
-                              size: 19,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: searchController,
-                                onChanged: (_) => setSheetState(() {}),
-                                style: TextStyle(
-                                  color: c.text,
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: _t(
-                                    context,
-                                    de: 'Chats suchen...',
-                                    en: 'Search chats...',
-                                  ),
-                                  hintStyle: TextStyle(
-                                    color: c.muted,
-                                    fontSize: 14,
-                                    fontFamily: 'Inter',
-                                  ),
-                                  border: InputBorder.none,
-                                  isCollapsed: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Expanded(
-                        child: sessions.isEmpty
-                            ? Center(
-                                child: Text(
-                                  _t(
-                                    context,
-                                    de: 'Noch keine gespeicherten Chats.',
-                                    en: 'No saved chats yet.',
-                                  ),
-                                  style: TextStyle(
-                                    color: c.muted,
-                                    fontSize: 14,
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                              )
-                            : ListView.separated(
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: sessions.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final session = sessions[index];
-
-                                  return _ChatHistoryItem(
-                                    title: 'Chat ${index + 1}',
-                                    subtitle: _t(
-                                      context,
-                                      de: 'Gespeicherte Unterhaltung',
-                                      en: 'Saved conversation',
-                                    ),
-                                    colors: c,
-                                    onTap: () async {
-                                      Navigator.of(ctx).pop();
-                                      await chat.openChat(session.id);
-                                    },
-                                    onDelete: () async {
-                                      await chat.deleteChat(session.id);
-
-                                      if (context.mounted) {
-                                        Navigator.of(ctx).pop();
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
       },
-    ).whenComplete(() {
-      searchController.dispose();
-    });
+    ).whenComplete(
+      searchController.dispose,
+    );
   }
+
+  // ===============================================
+  // CHAT HISTORY CONTENT
+  // ===============================================
+
+  Widget _buildChatHistoryContent({
+    required BuildContext context,
+    required ChatController chat,
+    required List<ChatSession> sessions,
+    required String query,
+    required _ChatColors colors,
+    required VoidCallback closeSheet,
+  }) {
+    // Beim initialen Laden nicht fälschlich
+    // einen Empty State anzeigen.
+    if (chat.isLoadingHistory &&
+        chat.sessions.isEmpty) {
+      return Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child:
+              CircularProgressIndicator(
+            strokeWidth: 1.8,
+            color:
+                colors.goldText,
+          ),
+        ),
+      );
+    }
+
+    if (sessions.isEmpty) {
+      final hasSearch =
+          query.isNotEmpty;
+
+      return Center(
+        child: Text(
+          _t(
+            context,
+            de: hasSearch
+                ? 'Keine passenden Chats gefunden.'
+                : 'Noch keine gespeicherten Chats.',
+            en: hasSearch
+                ? 'No matching chats found.'
+                : 'No saved chats yet.',
+          ),
+          textAlign:
+              TextAlign.center,
+          style:
+              TextStyle(
+            color:
+                colors.muted,
+            fontSize:
+                14,
+            fontFamily:
+                'Inter',
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      physics:
+          const BouncingScrollPhysics(),
+      itemCount:
+          sessions.length,
+      separatorBuilder:
+          (_, __) =>
+              const SizedBox(
+        height: 10,
+      ),
+      itemBuilder: (
+        context,
+        index,
+      ) {
+        final session =
+            sessions[index];
+
+        final title =
+            _sessionTitle(
+          context,
+          session,
+        );
+
+        final subtitle =
+            _formatSessionTimestamp(
+          context,
+          session.updatedAt ??
+              session.createdAt,
+        );
+
+        return _ChatHistoryItem(
+          title:
+              title,
+          subtitle:
+              subtitle,
+          colors:
+              colors,
+          onTap:
+              () async {
+            closeSheet();
+
+            await chat.openChat(
+              session.id,
+            );
+          },
+          onDelete:
+              () async {
+            await chat.deleteChat(
+              session.id,
+            );
+
+            if (context.mounted) {
+              closeSheet();
+            }
+          },
+        );
+      },
+    );
+  }
+
+  // ===============================================
+  // SESSION TITLE
+  // ===============================================
+
+  String _sessionTitle(
+    BuildContext context,
+    ChatSession session,
+  ) {
+    final title =
+        session.title.trim();
+
+    if (title.isNotEmpty) {
+      return title;
+    }
+
+    // Neutraler UI-Zustand.
+    // Kein erfundener Chat-Inhalt.
+    return _t(
+      context,
+      de: 'Chat ohne Titel',
+      en: 'Untitled chat',
+    );
+  }
+
+  // ===============================================
+  // SESSION TIMESTAMP
+  // ===============================================
+
+  String? _formatSessionTimestamp(
+    BuildContext context,
+    DateTime? value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    final local =
+        value.toLocal();
+
+    final now =
+        DateTime.now();
+
+    final today =
+        DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final messageDay =
+        DateTime(
+      local.year,
+      local.month,
+      local.day,
+    );
+
+    final yesterday =
+        today.subtract(
+      const Duration(
+        days: 1,
+      ),
+    );
+
+    final time =
+        '${_twoDigits(local.hour)}:'
+        '${_twoDigits(local.minute)}';
+
+    if (messageDay == today) {
+      return _t(
+        context,
+        de: 'Heute, $time',
+        en: 'Today, $time',
+      );
+    }
+
+    if (messageDay == yesterday) {
+      return _t(
+        context,
+        de: 'Gestern, $time',
+        en: 'Yesterday, $time',
+      );
+    }
+
+    final language =
+        Localizations.localeOf(
+      context,
+    ).languageCode;
+
+    if (language == 'de') {
+      return '${_twoDigits(local.day)}.'
+          '${_twoDigits(local.month)}.'
+          '${local.year}, $time';
+    }
+
+    return '${local.year}-'
+        '${_twoDigits(local.month)}-'
+        '${_twoDigits(local.day)}, '
+        '$time';
+  }
+
+  String _twoDigits(
+    int value,
+  ) {
+    return value
+        .toString()
+        .padLeft(
+          2,
+          '0',
+        );
+  }
+
+  // ===============================================
+  // LOCAL TEXT
+  // ===============================================
 
   String _t(
     BuildContext context, {
     required String de,
     required String en,
   }) {
-    final code = Localizations.localeOf(context).languageCode;
-    return code == 'de' ? de : en;
+    final code =
+        Localizations.localeOf(
+      context,
+    ).languageCode;
+
+    return code == 'de'
+        ? de
+        : en;
   }
 }
 
-// ==============================================
+// ===============================================
 // COLORS
-// ==============================================
+// ===============================================
 
 class _ChatColors {
   const _ChatColors({
@@ -510,20 +1073,36 @@ class _ChatColors {
       ? const Color(0xFFFFC96B)
       : const Color(0xFFB88922);
 
-  Color get border => goldText.withOpacity(isDark ? 0.16 : 0.22);
+  Color get border =>
+      goldText.withOpacity(
+        isDark
+            ? 0.16
+            : 0.22,
+      );
 
   Color get sheet => isDark
-      ? Colors.black.withOpacity(0.88)
-      : const Color(0xFFFFFBF3).withOpacity(0.94);
+      ? Colors.black.withOpacity(
+          0.88,
+        )
+      : const Color(
+          0xFFFFFBF3,
+        ).withOpacity(
+          0.94,
+        );
 
-  List<Color> get gradient => [bg, bg2, bg];
+  List<Color> get gradient => [
+        bg,
+        bg2,
+        bg,
+      ];
 }
 
-// ==============================================
+// ===============================================
 // BACKGROUND
-// ==============================================
+// ===============================================
 
-class _ChatLuxuryBackground extends StatelessWidget {
+class _ChatLuxuryBackground
+    extends StatelessWidget {
   const _ChatLuxuryBackground({
     required this.colors,
   });
@@ -531,21 +1110,34 @@ class _ChatLuxuryBackground extends StatelessWidget {
   final _ChatColors colors;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Stack(
       children: [
         Positioned(
-          top: -100,
-          right: -130,
-          child: Container(
-            width: 330,
-            height: 330,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
+          top:
+              -100,
+          right:
+              -130,
+          child:
+              Container(
+            width:
+                330,
+            height:
+                330,
+            decoration:
+                BoxDecoration(
+              shape:
+                  BoxShape.circle,
+              gradient:
+                  RadialGradient(
                 colors: [
-                  colors.amber.withOpacity(
-                    colors.isDark ? 0.10 : 0.14,
+                  colors.amber
+                      .withOpacity(
+                    colors.isDark
+                        ? 0.10
+                        : 0.14,
                   ),
                   Colors.transparent,
                 ],
@@ -558,11 +1150,12 @@ class _ChatLuxuryBackground extends StatelessWidget {
   }
 }
 
-// ==============================================
+// ===============================================
 // USER MESSAGE
-// ==============================================
+// ===============================================
 
-class _UserPlainMessage extends StatelessWidget {
+class _UserPlainMessage
+    extends StatelessWidget {
   const _UserPlainMessage({
     required this.text,
     required this.colors,
@@ -572,20 +1165,41 @@ class _UserPlainMessage extends StatelessWidget {
   final _ChatColors colors;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(42, 10, 2, 14),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Text(
+      padding:
+          const EdgeInsets.fromLTRB(
+        42,
+        10,
+        2,
+        14,
+      ),
+      child:
+          Align(
+        alignment:
+            Alignment.centerRight,
+        child:
+            Text(
           text,
-          textAlign: TextAlign.right,
-          style: TextStyle(
-            color: colors.text.withOpacity(0.92),
-            fontSize: 15,
-            height: 1.45,
-            fontWeight: FontWeight.w400,
-            fontFamily: 'Inter',
+          textAlign:
+              TextAlign.right,
+          style:
+              TextStyle(
+            color:
+                colors.text
+                    .withOpacity(
+              0.92,
+            ),
+            fontSize:
+                15,
+            height:
+                1.45,
+            fontWeight:
+                FontWeight.w400,
+            fontFamily:
+                'Inter',
           ),
         ),
       ),
@@ -593,11 +1207,12 @@ class _UserPlainMessage extends StatelessWidget {
   }
 }
 
-// ==============================================
+// ===============================================
 // CHAT HISTORY ITEM
-// ==============================================
+// ===============================================
 
-class _ChatHistoryItem extends StatelessWidget {
+class _ChatHistoryItem
+    extends StatelessWidget {
   const _ChatHistoryItem({
     required this.title,
     required this.subtitle,
@@ -607,53 +1222,99 @@ class _ChatHistoryItem extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final _ChatColors colors;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
+    final cleanSubtitle =
+        subtitle?.trim();
+
     return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colors.border,
-          width: 0.7,
+      decoration:
+          BoxDecoration(
+        color:
+            colors.surface,
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
+        border:
+            Border.all(
+          color:
+              colors.border,
+          width:
+              0.7,
         ),
       ),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.only(
-          left: 16,
-          right: 6,
-          top: 4,
-          bottom: 4,
+      child:
+          ListTile(
+        onTap:
+            onTap,
+        contentPadding:
+            const EdgeInsets.only(
+          left:
+              16,
+          right:
+              6,
+          top:
+              4,
+          bottom:
+              4,
         ),
-        title: Text(
+        title:
+            Text(
           title,
-          style: TextStyle(
-            color: colors.goldText.withOpacity(0.92),
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'Inter',
+          maxLines:
+              2,
+          overflow:
+              TextOverflow.ellipsis,
+          style:
+              TextStyle(
+            color:
+                colors.goldText
+                    .withOpacity(
+              0.92,
+            ),
+            fontSize:
+                14.5,
+            fontWeight:
+                FontWeight.w500,
+            fontFamily:
+                'Inter',
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: colors.muted,
-            fontSize: 12.5,
-            fontFamily: 'Inter',
-          ),
-        ),
-        trailing: IconButton(
-          onPressed: onDelete,
-          icon: Icon(
+        subtitle:
+            cleanSubtitle == null ||
+                    cleanSubtitle.isEmpty
+                ? null
+                : Text(
+                    cleanSubtitle,
+                    style:
+                        TextStyle(
+                      color:
+                          colors.muted,
+                      fontSize:
+                          12.5,
+                      fontFamily:
+                          'Inter',
+                    ),
+                  ),
+        trailing:
+            IconButton(
+          onPressed:
+              onDelete,
+          icon:
+              Icon(
             Icons.delete_outline_rounded,
-            color: colors.muted,
-            size: 20,
+            color:
+                colors.muted,
+            size:
+                20,
           ),
         ),
       ),

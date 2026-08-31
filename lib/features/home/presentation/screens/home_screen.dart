@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/emie_app_bar.dart';
 import '../../../../state/session_store.dart';
+import '../../../chat/controller/chat_controller.dart';
 import '../../../plus/presentation/screens/emie_plus_screen.dart';
 
 // ==============================================
@@ -29,13 +30,18 @@ class _HomeScreenState extends State<HomeScreen>
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
 
+  Future<String>? _dailyWelcomeFuture;
+  String? _dailyWelcomeLanguage;
+
   @override
   void initState() {
     super.initState();
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 850),
+      duration: const Duration(
+        milliseconds: 850,
+      ),
     );
 
     _fade = CurvedAnimation(
@@ -57,37 +63,88 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final session =
+        context.read<SessionStore>();
+
+    final language =
+        session.language;
+
+    // Daily Welcome nur einmal pro Sprache laden.
+    //
+    // Dadurch wird bei normalen Rebuilds nicht
+    // ständig erneut der API-Endpunkt aufgerufen.
+    if (_dailyWelcomeFuture == null ||
+        _dailyWelcomeLanguage != language) {
+      _dailyWelcomeLanguage = language;
+
+      _dailyWelcomeFuture =
+          context
+              .read<ChatController>()
+              .getDailyWelcome();
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
+
     super.dispose();
   }
 
-  String _getGreeting(_HomeText t) {
-    final hour = DateTime.now().hour;
+  String _getGreeting(
+    _HomeText t,
+    String displayName,
+  ) {
+    final hour =
+        DateTime.now().hour;
 
     if (hour >= 5 && hour < 11) {
-      return t.morning;
+      return t.morning(
+        displayName,
+      );
     }
 
     if (hour >= 11 && hour < 17) {
-      return t.midday;
+      return t.midday(
+        displayName,
+      );
     }
 
     if (hour >= 17 && hour < 23) {
-      return t.evening;
+      return t.evening(
+        displayName,
+      );
     }
 
-    return t.night;
+    return t.night(
+      displayName,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<SessionStore>();
-    final isDark =
-        Theme.of(context).brightness == Brightness.dark;
+    final session =
+        context.watch<SessionStore>();
 
-    final c = _HomeColors(isDark: isDark);
-    final t = _HomeText(session.language);
+    final isDark =
+        Theme.of(context).brightness ==
+            Brightness.dark;
+
+    final c =
+        _HomeColors(
+      isDark: isDark,
+    );
+
+    final t =
+        _HomeText(
+      session.language,
+    );
+
+    final displayName =
+        session.displayName;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -101,7 +158,9 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: Stack(
           children: [
-            _LuxuryBackground(colors: c),
+            _LuxuryBackground(
+              colors: c,
+            ),
             SafeArea(
               child: FadeTransition(
                 opacity: _fade,
@@ -123,26 +182,36 @@ class _HomeScreenState extends State<HomeScreen>
                       children: [
                         EmieAppBar(
                           section: t.section,
-                          icon: Icons.workspace_premium_rounded,
+                          icon:
+                              Icons.workspace_premium_rounded,
                           badgeText: 'Plus',
                           onIconTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                              builder: (_) => const EmiePlusScreen(),
+                                builder: (_) =>
+                                    const EmiePlusScreen(),
                               ),
                             );
                           },
                         ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(
+                          height: 32,
+                        ),
 
                         _GreetingBlock(
-                          title: _getGreeting(t),
-                          subtitle: t.overviewToday,
+                          title: _getGreeting(
+                            t,
+                            displayName,
+                          ),
+                          subtitle:
+                              t.overviewToday,
                           colors: c,
                         ),
 
-                        const SizedBox(height: 34),
+                        const SizedBox(
+                          height: 34,
+                        ),
 
                         Text(
                           t.yourOverview,
@@ -150,134 +219,66 @@ class _HomeScreenState extends State<HomeScreen>
                             color: c.goldText
                                 .withOpacity(0.78),
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight:
+                                FontWeight.w600,
                             letterSpacing: 1.8,
                             fontFamily: 'Inter',
                           ),
                         ),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(
+                          height: 14,
+                        ),
+
+                        // ==================================
+                        // DAILY WELCOME
+                        // ==================================
 
                         _GradientBorderCard(
                           colors: c,
                           large: true,
-                          icon: Icons.wb_sunny_outlined,
-                          title: t.dailyWelcomeTitle,
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                t.dailyWelcomeText,
-                                style: TextStyle(
-                                  color: c.text,
-                                  fontSize: 16,
-                                  height: 1.52,
-                                  fontWeight:
-                                      FontWeight.w400,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              _GoldActionText(
-                                text: t.startNow,
-                                colors: c,
-                              ),
-                            ],
+                          icon:
+                              Icons.wb_sunny_outlined,
+                          title:
+                              t.dailyWelcomeTitle,
+                          child:
+                              _DailyWelcomeContent(
+                            future:
+                                _dailyWelcomeFuture,
+                            colors: c,
+                            text: t,
                           ),
                         ),
 
-                        const SizedBox(height: 15),
-
-                        _GradientBorderCard(
-                          colors: c,
-                          icon: Icons.business_center_outlined,
-                          title: t.topProjectTitle,
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                t.projectName,
-                                style: TextStyle(
-                                  color: c.goldText,
-                                  fontSize: 22,
-                                  letterSpacing: 1.2,
-                                  fontWeight:
-                                      FontWeight.w500,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                t.projectSubtitle,
-                                style: TextStyle(
-                                  color: c.subText,
-                                  fontSize: 14.2,
-                                  height: 1.35,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-                              _ProgressBar(
-                                value: 0.67,
-                                colors: c,
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                t.projectProgress,
-                                style: TextStyle(
-                                  color: c.muted,
-                                  fontSize: 13,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              _GoldActionText(
-                                text: t.openProject,
-                                colors: c,
-                              ),
-                            ],
-                          ),
+                        const SizedBox(
+                          height: 15,
                         ),
 
-                        const SizedBox(height: 15),
+                        // ==================================
+                        // TOP PROJECT
+                        // ==================================
+                        //
+                        // Aktuell ist im HomeScreen noch
+                        // keine echte Project-Datenquelle
+                        // angebunden.
+                        //
+                        // Deshalb bewusst Empty State statt
+                        // erfundener Projekt-/Fortschrittsdaten.
 
                         _GradientBorderCard(
                           colors: c,
-                          icon: Icons.favorite_border_rounded,
-                          title: t.healthTitle,
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                t.sleepTitle,
-                                style: TextStyle(
-                                  color: c.goldText,
-                                  fontSize: 20,
-                                  letterSpacing: 1,
-                                  fontWeight:
-                                      FontWeight.w500,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                t.sleepSubtitle,
-                                style: TextStyle(
-                                  color: c.subText,
-                                  fontSize: 14,
-                                  height: 1.45,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              _GoldActionText(
-                                text: t.openHealth,
-                                colors: c,
-                              ),
-                            ],
+                          icon:
+                              Icons.business_center_outlined,
+                          title:
+                              t.topProjectTitle,
+                          child: _EmptyState(
+                            icon:
+                                Icons.folder_open_outlined,
+                            title:
+                                t.noProjectTitle,
+                            subtitle:
+                                t.noProjectSubtitle,
+                            colors: c,
                           ),
                         ),
                       ],
@@ -294,11 +295,202 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 // ==============================================
+// DAILY WELCOME CONTENT
+// ==============================================
+
+class _DailyWelcomeContent
+    extends StatelessWidget {
+  const _DailyWelcomeContent({
+    required this.future,
+    required this.colors,
+    required this.text,
+  });
+
+  final Future<String>? future;
+  final _HomeColors colors;
+  final _HomeText text;
+
+  @override
+  Widget build(BuildContext context) {
+    final request = future;
+
+    if (request == null) {
+      return _DailyWelcomeLoading(
+        colors: colors,
+      );
+    }
+
+    return FutureBuilder<String>(
+      future: request,
+      builder: (
+        context,
+        snapshot,
+      ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return _DailyWelcomeLoading(
+            colors: colors,
+          );
+        }
+
+        final value =
+            snapshot.data?.trim() ?? '';
+
+        if (value.isEmpty) {
+          return _EmptyState(
+            icon:
+                Icons.wb_cloudy_outlined,
+            title:
+                text.dailyWelcomeEmptyTitle,
+            subtitle:
+                text.dailyWelcomeEmptySubtitle,
+            colors: colors,
+          );
+        }
+
+        return Text(
+          value,
+          style: TextStyle(
+            color: colors.text,
+            fontSize: 16,
+            height: 1.52,
+            fontWeight:
+                FontWeight.w400,
+            fontFamily: 'Inter',
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ==============================================
+// DAILY WELCOME LOADING
+// ==============================================
+
+class _DailyWelcomeLoading
+    extends StatelessWidget {
+  const _DailyWelcomeLoading({
+    required this.colors,
+  });
+
+  final _HomeColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.8,
+            color: colors.goldText,
+          ),
+        ),
+        const SizedBox(
+          width: 12,
+        ),
+        Expanded(
+          child: Text(
+            '…',
+            style: TextStyle(
+              color: colors.muted,
+              fontSize: 15,
+              fontFamily: 'Inter',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ==============================================
+// EMPTY STATE
+// ==============================================
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final _HomeColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.goldText
+                .withOpacity(0.07),
+          ),
+          child: Icon(
+            icon,
+            size: 19,
+            color: colors.goldText
+                .withOpacity(0.72),
+          ),
+        ),
+        const SizedBox(
+          width: 13,
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: colors.text,
+                  fontSize: 15,
+                  fontWeight:
+                      FontWeight.w500,
+                  height: 1.3,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(
+                height: 5,
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: colors.muted,
+                  fontSize: 13.5,
+                  height: 1.4,
+                  fontFamily: 'Inter',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ==============================================
 // COLORS
 // ==============================================
 
 class _HomeColors {
-  const _HomeColors({required this.isDark});
+  const _HomeColors({
+    required this.isDark,
+  });
 
   final bool isDark;
 
@@ -342,7 +534,11 @@ class _HomeColors {
       ? const Color(0xFFFFC96B)
       : const Color(0xFFB88922);
 
-  List<Color> get gradient => [bg, bg2, bg];
+  List<Color> get gradient => [
+        bg,
+        bg2,
+        bg,
+      ];
 }
 
 // ==============================================
@@ -350,72 +546,90 @@ class _HomeColors {
 // ==============================================
 
 class _HomeText {
-  _HomeText(String code) : isDe = code == 'de';
+  _HomeText(
+    String code,
+  ) : isDe = code == 'de';
 
   final bool isDe;
 
-  String get section => isDe ? 'übersicht' : 'overview';
+  String get section =>
+      isDe
+          ? 'übersicht'
+          : 'overview';
 
-  String get morning =>
-      isDe ? 'Guten Morgen, Patze.' : 'Good morning, Patze.';
-  String get midday =>
-      isDe ? 'Schönen Mittag, Patze.' : 'Good afternoon, Patze.';
-  String get evening =>
-      isDe ? 'Guten Abend, Patze.' : 'Good evening, Patze.';
-  String get night =>
-      isDe ? 'Noch wach, Patze?' : 'Still awake, Patze?';
+  String morning(
+    String name,
+  ) =>
+      isDe
+          ? 'Guten Morgen, $name.'
+          : 'Good morning, $name.';
 
-  String get overviewToday => isDe
-      ? 'Dein Überblick für heute.'
-      : 'Your overview for today.';
+  String midday(
+    String name,
+  ) =>
+      isDe
+          ? 'Schönen Mittag, $name.'
+          : 'Good afternoon, $name.';
+
+  String evening(
+    String name,
+  ) =>
+      isDe
+          ? 'Guten Abend, $name.'
+          : 'Good evening, $name.';
+
+  String night(
+    String name,
+  ) =>
+      isDe
+          ? 'Noch wach, $name?'
+          : 'Still awake, $name?';
+
+  String get overviewToday =>
+      isDe
+          ? 'Dein Überblick für heute.'
+          : 'Your overview for today.';
 
   String get yourOverview =>
-      isDe ? 'DEIN ÜBERBLICK' : 'YOUR OVERVIEW';
+      isDe
+          ? 'DEIN ÜBERBLICK'
+          : 'YOUR OVERVIEW';
 
   String get dailyWelcomeTitle =>
-      isDe ? '1. DAILY WELCOME' : '1. DAILY WELCOME';
+      '1. DAILY WELCOME';
 
-  String get dailyWelcomeText => isDe
-      ? 'Gestern war intensiv. Heute lieber mit einem klaren ersten Schritt beginnen statt alles gleichzeitig anzugehen.'
-      : 'Yesterday was intense. Today, start with one clear first step instead of trying to handle everything at once.';
+  String get dailyWelcomeEmptyTitle =>
+      isDe
+          ? 'Noch kein Tagesimpuls verfügbar'
+          : 'No daily insight available yet';
 
-  String get startNow =>
-      isDe ? 'Jetzt starten' : 'Start now';
+  String get dailyWelcomeEmptySubtitle =>
+      isDe
+          ? 'Sobald Emie einen Tagesimpuls geladen hat, erscheint er hier.'
+          : 'Your daily insight will appear here once Emie has loaded it.';
 
   String get topProjectTitle =>
-      isDe ? '2. TOP-PROJEKT' : '2. TOP PROJECT';
+      isDe
+          ? '2. TOP-PROJEKT'
+          : '2. TOP PROJECT';
 
-  String get projectName =>
-      isDe ? 'JAPAN-REISE' : 'JAPAN TRIP';
+  String get noProjectTitle =>
+      isDe
+          ? 'Noch kein Projekt vorhanden'
+          : 'No project yet';
 
-  String get projectSubtitle =>
-      isDe ? 'In 87 Tagen geht es los.' : 'Starts in 87 days.';
-
-  String get projectProgress =>
-      isDe ? '67% geplant' : '67% planned';
-
-  String get openProject =>
-      isDe ? 'Projekt öffnen' : 'Open project';
-
-  String get healthTitle =>
-      isDe ? '3. HEALTH' : '3. HEALTH';
-
-  String get sleepTitle =>
-      isDe ? '7H 12MIN SCHLAF' : '7H 12MIN SLEEP';
-
-  String get sleepSubtitle => isDe
-      ? 'Ruhige Nacht. Deine Regeneration wirkt stabil.'
-      : 'Calm night. Your recovery looks stable.';
-
-  String get openHealth =>
-      isDe ? 'Health öffnen' : 'Open health';
+  String get noProjectSubtitle =>
+      isDe
+          ? 'Dein wichtigstes Projekt erscheint hier, sobald Projektdaten verfügbar sind.'
+          : 'Your most important project will appear here once project data is available.';
 }
 
 // ==============================================
 // GREETING BLOCK
 // ==============================================
 
-class _GreetingBlock extends StatelessWidget {
+class _GreetingBlock
+    extends StatelessWidget {
   const _GreetingBlock({
     required this.title,
     required this.subtitle,
@@ -438,12 +652,15 @@ class _GreetingBlock extends StatelessWidget {
             color: colors.text,
             fontSize: 30,
             height: 1.12,
-            fontWeight: FontWeight.w400,
+            fontWeight:
+                FontWeight.w400,
             letterSpacing: -0.2,
             fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(
+          height: 10,
+        ),
         Text(
           subtitle,
           style: TextStyle(
@@ -462,7 +679,8 @@ class _GreetingBlock extends StatelessWidget {
 // BACKGROUND
 // ==============================================
 
-class _LuxuryBackground extends StatelessWidget {
+class _LuxuryBackground
+    extends StatelessWidget {
   const _LuxuryBackground({
     required this.colors,
   });
@@ -484,7 +702,9 @@ class _LuxuryBackground extends StatelessWidget {
               gradient: RadialGradient(
                 colors: [
                   colors.amber.withOpacity(
-                    colors.isDark ? 0.12 : 0.16,
+                    colors.isDark
+                        ? 0.12
+                        : 0.16,
                   ),
                   Colors.transparent,
                 ],
@@ -501,7 +721,8 @@ class _LuxuryBackground extends StatelessWidget {
 // CARD
 // ==============================================
 
-class _GradientBorderCard extends StatelessWidget {
+class _GradientBorderCard
+    extends StatelessWidget {
   const _GradientBorderCard({
     required this.icon,
     required this.title,
@@ -521,21 +742,32 @@ class _GradientBorderCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(
-        minHeight: large ? 190 : 150,
+        minHeight:
+            large
+                ? 190
+                : 150,
       ),
-      padding: const EdgeInsets.all(0.7),
+      padding:
+          const EdgeInsets.all(0.7),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(22),
         gradient: LinearGradient(
           colors: [
             colors.goldSoft.withOpacity(
-              colors.isDark ? 0.34 : 0.26,
+              colors.isDark
+                  ? 0.34
+                  : 0.26,
             ),
             colors.gold.withOpacity(
-              colors.isDark ? 0.42 : 0.30,
+              colors.isDark
+                  ? 0.42
+                  : 0.30,
             ),
             colors.goldSoft.withOpacity(
-              colors.isDark ? 0.18 : 0.14,
+              colors.isDark
+                  ? 0.18
+                  : 0.14,
             ),
           ],
           begin: Alignment.topLeft,
@@ -543,24 +775,33 @@ class _GradientBorderCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colors.amber.withOpacity(
-              colors.isDark ? 0.08 : 0.10,
+            color:
+                colors.amber.withOpacity(
+              colors.isDark
+                  ? 0.08
+                  : 0.10,
             ),
             blurRadius: 26,
             spreadRadius: -8,
-            offset: const Offset(0, 8),
+            offset:
+                const Offset(0, 8),
           ),
         ],
       ),
       child: Container(
         padding: EdgeInsets.fromLTRB(
           18,
-          large ? 20 : 18,
+          large
+              ? 20
+              : 18,
           18,
-          large ? 20 : 18,
+          large
+              ? 20
+              : 18,
         ),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(21),
+          borderRadius:
+              BorderRadius.circular(21),
           color: colors.card,
         ),
         child: Row(
@@ -569,10 +810,18 @@ class _GradientBorderCard extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: colors.goldText.withOpacity(0.82),
-              size: large ? 24 : 22,
+              color:
+                  colors.goldText.withOpacity(
+                0.82,
+              ),
+              size:
+                  large
+                      ? 24
+                      : 22,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(
+              width: 16,
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -582,87 +831,30 @@ class _GradientBorderCard extends StatelessWidget {
                     title,
                     style: TextStyle(
                       color:
-                          colors.goldText.withOpacity(0.78),
+                          colors.goldText
+                              .withOpacity(
+                        0.78,
+                      ),
                       fontSize: 12,
-                      letterSpacing: 1.15,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Inter',
+                      letterSpacing:
+                          1.15,
+                      fontWeight:
+                          FontWeight.w600,
+                      fontFamily:
+                          'Inter',
                     ),
                   ),
-                  SizedBox(height: large ? 16 : 14),
+                  SizedBox(
+                    height:
+                        large
+                            ? 16
+                            : 14,
+                  ),
                   child,
                 ],
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==============================================
-// GOLD ACTION TEXT
-// ==============================================
-
-class _GoldActionText extends StatelessWidget {
-  const _GoldActionText({
-    required this.text,
-    required this.colors,
-  });
-
-  final String text;
-  final _HomeColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '$text  →',
-      style: TextStyle(
-        color: colors.amber.withOpacity(0.88),
-        fontSize: 13.5,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.15,
-        fontFamily: 'Inter',
-      ),
-    );
-  }
-}
-
-// ==============================================
-// PROGRESS BAR
-// ==============================================
-
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({
-    required this.value,
-    required this.colors,
-  });
-
-  final double value;
-  final _HomeColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 4,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: colors.text.withOpacity(
-          colors.isDark ? 0.06 : 0.10,
-        ),
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: value,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius:
-                  BorderRadius.circular(999),
-              color: colors.goldText.withOpacity(0.76),
-            ),
-          ),
         ),
       ),
     );

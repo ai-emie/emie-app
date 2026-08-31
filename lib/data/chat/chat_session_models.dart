@@ -4,36 +4,91 @@
 // ===============================================
 
 class ChatSession {
-  final String id;
-  final String title;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  ChatSession({
+  const ChatSession({
     required this.id,
     required this.title,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  static DateTime _parseDate(dynamic v) {
-    if (v == null) return DateTime.now();
-    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  final String id;
+  final String title;
+
+  // Nullable:
+  // Fehlende oder ungültige Backend-Zeitstempel
+  // werden nicht durch DateTime.now() ersetzt.
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  // -----------------------------------------------
+  // DATE PARSER
+  // -----------------------------------------------
+
+  static DateTime? _parseDate(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    final raw = value.toString().trim();
+
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    return DateTime.tryParse(raw);
   }
 
-  factory ChatSession.fromJson(Map<String, dynamic> json) {
+  // -----------------------------------------------
+  // FROM JSON
+  // -----------------------------------------------
+
+  factory ChatSession.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawTitle =
+        (json['title'] ?? '').toString().trim();
+
     return ChatSession(
-      id: (json['id'] ?? json['session_id'] ?? '').toString(),
-      title: (json['title'] ?? 'New chat').toString(),
-      createdAt: _parseDate(json['created_at']),
-      updatedAt: _parseDate(json['updated_at'] ?? json['created_at']),
+      id: (
+        json['id'] ??
+        json['session_id'] ??
+        ''
+      )
+          .toString()
+          .trim(),
+
+      // Kein erfundener "New chat"-Titel.
+      //
+      // Ein leerer Titel bleibt leer.
+      // Die UI entscheidet später transparent,
+      // wie ein titelloser Chat dargestellt wird.
+      title: rawTitle,
+
+      createdAt: _parseDate(
+        json['created_at'],
+      ),
+
+      updatedAt: _parseDate(
+        json['updated_at'] ??
+            json['created_at'],
+      ),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
-      };
+  // -----------------------------------------------
+  // TO JSON
+  // -----------------------------------------------
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'created_at':
+          createdAt?.toIso8601String(),
+      'updated_at':
+          updatedAt?.toIso8601String(),
+    };
+  }
 }
