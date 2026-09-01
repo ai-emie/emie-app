@@ -717,6 +717,94 @@ class AuthController extends ChangeNotifier {
   }
 
   // -------------------------------------------
+  //  ACCOUNT LÖSCHEN
+  // -------------------------------------------
+  Future<bool> deleteAccount() async {
+    _setError(null);
+    _setLoading(true);
+
+    try {
+      // Account zuerst serverseitig löschen.
+      //
+      // Das Repository entfernt die lokale Session
+      // erst NACH erfolgreichem DELETE /v1/me.
+      await _repo.deleteAccount();
+
+      // Google lokal best-effort abmelden.
+      //
+      // Ein Fehler hier ?ndert nichts daran, dass der
+      // Emie-Account bereits erfolgreich gelöscht wurde.
+      try {
+        final googleSignIn = GoogleSignIn(
+          scopes: const ['email'],
+        );
+
+        await googleSignIn.signOut();
+      } catch (e) {
+        _debugErrorType(
+          'Google SignOut nach Account-Löschung',
+          e,
+        );
+      }
+
+      _setError(null);
+
+      return true;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode ?? 0;
+
+      final isConnectionError =
+          e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout;
+
+      if (isConnectionError) {
+        _setError(
+          'Account konnte nicht gelöscht werden. '
+          'Bitte prüfe deine Internetverbindung.',
+        );
+      } else if (status == 401) {
+        _setError(
+          'Deine Sitzung ist abgelaufen. '
+          'Bitte melde dich erneut an.',
+        );
+      } else if (status >= 500) {
+        _setError(
+          'Account konnte gerade nicht gelöscht werden. '
+          'Bitte versuch es später erneut.',
+        );
+      } else {
+        _setError(
+          'Account konnte nicht gelöscht werden. '
+          'Bitte versuch es erneut.',
+        );
+      }
+
+      _debugDio(
+        'deleteAccount DioException',
+        e,
+      );
+
+      return false;
+    } catch (e) {
+      _setError(
+        'Account konnte nicht gelöscht werden. '
+        'Bitte versuch es später erneut.',
+      );
+
+      _debugErrorType(
+        'deleteAccount unknown error',
+        e,
+      );
+
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // -------------------------------------------
   //  Forgot Password
   // -------------------------------------------
   Future<bool> requestPasswordReset(

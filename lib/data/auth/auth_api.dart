@@ -15,7 +15,7 @@ class AuthApi {
 
   // -------------------------------------------
   // • Login (E-Mail & Passwort)
-  //    Backend: POST /v1/auth/login
+  //   Backend: POST /v1/auth/login
   // -------------------------------------------
   Future<TokenPair> login({
     required String email,
@@ -29,13 +29,15 @@ class AuthApi {
       },
     );
 
-    return TokenPair.fromJson(res.data as Map<String, dynamic>);
+    return TokenPair.fromJson(
+      res.data as Map<String, dynamic>,
+    );
   }
 
   // -------------------------------------------
   // • Registrierung
-  //    Backend: POST /v1/auth/register
-  //    Response: VerifyResponse
+  //   Backend: POST /v1/auth/register
+  //   Response: VerifyResponse
   // -------------------------------------------
   Future<VerifyResponse> register({
     required String name,
@@ -51,12 +53,14 @@ class AuthApi {
       },
     );
 
-    return VerifyResponse.fromJson(res.data as Map<String, dynamic>);
+    return VerifyResponse.fromJson(
+      res.data as Map<String, dynamic>,
+    );
   }
 
   // -------------------------------------------
   // • E-Mail verifizieren
-  //    Backend: GET /v1/auth/verify?token=...
+  //   Backend: GET /v1/auth/verify?token=...
   // -------------------------------------------
   Future<VerifyResponse> verifyEmail({
     required String token,
@@ -68,21 +72,38 @@ class AuthApi {
       },
     );
 
-    return VerifyResponse.fromJson(res.data as Map<String, dynamic>);
+    return VerifyResponse.fromJson(
+      res.data as Map<String, dynamic>,
+    );
   }
 
   // -------------------------------------------
-  // • eigenes Profil laden
-  //    Backend: GET /v1/me
+  // • Eigenes Profil laden
+  //   Backend: GET /v1/me
   // -------------------------------------------
   Future<UserProfile> me() async {
-    final res = await _dio.get('/v1/me');
-    return UserProfile.fromJson(res.data as Map<String, dynamic>);
+    final res = await _dio.get(
+      '/v1/me',
+    );
+
+    return UserProfile.fromJson(
+      res.data as Map<String, dynamic>,
+    );
+  }
+
+  // -------------------------------------------
+  // • Account löschen
+  //   Backend: DELETE /v1/me
+  // -------------------------------------------
+  Future<void> deleteAccount() async {
+    await _dio.delete(
+      '/v1/me',
+    );
   }
 
   // -------------------------------------------
   // • Google Login
-  //    Backend: POST /v1/auth/google
+  //   Backend: POST /v1/auth/google
   // -------------------------------------------
   Future<TokenPair> loginWithGoogle({
     required String idToken,
@@ -94,12 +115,14 @@ class AuthApi {
       },
     );
 
-    return TokenPair.fromJson(res.data as Map<String, dynamic>);
+    return TokenPair.fromJson(
+      res.data as Map<String, dynamic>,
+    );
   }
 
   // -------------------------------------------
   // • Apple Login
-  //    Backend: POST /v1/auth/apple
+  //   Backend: POST /v1/auth/apple
   // -------------------------------------------
   Future<TokenPair> loginWithApple({
     required String identityToken,
@@ -111,12 +134,14 @@ class AuthApi {
       },
     );
 
-    return TokenPair.fromJson(res.data as Map<String, dynamic>);
+    return TokenPair.fromJson(
+      res.data as Map<String, dynamic>,
+    );
   }
 
   // -------------------------------------------
   // • Token Refresh
-  //    Backend: POST /v1/auth/refresh
+  //   Backend: POST /v1/auth/refresh
   // -------------------------------------------
   Future<TokenPair> refresh({
     required String refreshToken,
@@ -135,7 +160,7 @@ class AuthApi {
 
   // -------------------------------------------
   // • Logout
-  //    Backend: POST /v1/auth/logout
+  //   Backend: POST /v1/auth/logout
   // -------------------------------------------
   Future<void> logout({
     required String refreshToken,
@@ -150,7 +175,7 @@ class AuthApi {
 
   // -------------------------------------------
   // • Forgot Password
-  //    Backend: POST /v1/auth/password/reset/start
+  //   Backend: POST /v1/auth/password/reset/start
   // -------------------------------------------
   Future<void> requestPasswordReset({
     required String email,

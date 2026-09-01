@@ -5,6 +5,7 @@
 // ===============================================
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,15 +19,65 @@ class SettingsScreen extends StatelessWidget {
   static const Color _goldSoft = Color(0xFF9A6F1C);
   static const Color _danger = Color(0xFFFF7A7A);
 
+  static const String _privacyUrl = 'https://emiso.ai/privacy.html';
+  static const String _termsUrl = 'https://emiso.ai/terms.html';
+
+  Future<void> _openLegalPage(
+    BuildContext context,
+    String url,
+  ) async {
+    final uri = Uri.parse(url);
+
+    try {
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened && context.mounted) {
+        _showLegalLinkError(context);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showLegalLinkError(context);
+      }
+    }
+  }
+
+  void _showLegalLinkError(BuildContext context) {
+    final isDe =
+        Localizations.localeOf(context).languageCode.toLowerCase() == 'de';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isDe
+              ? 'Die Seite konnte nicht geöffnet werden.'
+              : 'The page could not be opened.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionStore>();
+    final auth = context.watch<AuthController>();
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final c = _SettingsColors(isDark: isDark);
-    final t = _SettingsText(session.language);
+
+    final c = _SettingsColors(
+      isDark: isDark,
+    );
+
+    final t = _SettingsText(
+      session.language,
+    );
 
     final email = session.user?.email ?? t.notLoaded;
+
     final name = session.displayName;
+
     final initial = session.displayInitial;
 
     return Scaffold(
@@ -41,10 +92,19 @@ class SettingsScreen extends StatelessWidget {
         ),
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 36),
+            padding: const EdgeInsets.fromLTRB(
+              22,
+              18,
+              22,
+              36,
+            ),
             physics: const BouncingScrollPhysics(),
             children: [
-              _Header(title: t.settings, colors: c),
+              _Header(
+                title: t.settings,
+                colors: c,
+              ),
+
               const SizedBox(height: 30),
 
               _ProfileCard(
@@ -56,7 +116,15 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 26),
 
-              _SectionTitle(t.account, colors: c),
+              // ==========================================
+              // KONTO
+              // ==========================================
+
+              _SectionTitle(
+                t.account,
+                colors: c,
+              ),
+
               _SettingsCard(
                 colors: c,
                 children: [
@@ -66,63 +134,75 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: email,
                     colors: c,
                   ),
-                  _Divider(colors: c),
-                  _ActionTile(
-                    icon: Icons.lock_outline_rounded,
-                    title: t.changePassword,
-                    subtitle: t.comingSoon,
+
+                  _Divider(
                     colors: c,
-                    onTap: () {},
                   ),
-                  _Divider(colors: c),
+
+                  // ======================================
+                  // ACCOUNT LÖSCHEN
+                  // ======================================
+
                   _ActionTile(
                     icon: Icons.delete_outline_rounded,
                     title: t.deleteAccount,
-                    subtitle: t.requestDeletion,
+                    subtitle:
+                        auth.isLoading ? t.deletingAccount : t.requestDeletion,
                     danger: true,
+                    loading: auth.isLoading,
                     colors: c,
-                    onTap: () async {
-                      final uri = Uri.parse(
-                        'https://emiso.ai/konto-loeschen.html',
-                      );
-
-                      final opened = await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-
-                      if (!opened && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(t.couldNotOpenDeletionPage),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: auth.isLoading
+                        ? null
+                        : () async {
+                            await _handleDeleteAccount(
+                              context,
+                              t,
+                              c,
+                            );
+                          },
                   ),
-                  _Divider(colors: c),
+
+                  _Divider(
+                    colors: c,
+                  ),
+
+                  // ======================================
+                  // LOGOUT
+                  // ======================================
+
                   _ActionTile(
                     icon: Icons.logout_rounded,
                     title: t.logout,
                     subtitle: t.backToLogin,
                     danger: true,
                     colors: c,
-                    onTap: () async {
-                      // Keine Navigation hier.
-                      //
-                      // logout() löscht die Session.
-                      // app.dart reagiert auf SessionStore
-                      // und wechselt den Root automatisch
-                      // vom MainShell zum AuthScreen.
-                      await context.read<AuthController>().logout();
-                    },
+                    onTap: auth.isLoading
+                        ? null
+                        : () async {
+                            // Keine Navigation hier.
+                            //
+                            // logout() löscht die Session.
+                            // app.dart reagiert auf
+                            // SessionStore und wechselt
+                            // den Root automatisch vom
+                            // MainShell zum AuthScreen.
+                            await context.read<AuthController>().logout();
+                          },
                   ),
                 ],
               ),
 
               const SizedBox(height: 26),
 
-              _SectionTitle(t.appearance, colors: c),
+              // ==========================================
+              // ERSCHEINUNGSBILD
+              // ==========================================
+
+              _SectionTitle(
+                t.appearance,
+                colors: c,
+              ),
+
               _SettingsCard(
                 colors: c,
                 children: [
@@ -133,7 +213,9 @@ class SettingsScreen extends StatelessWidget {
                     selected: session.themeMode == EmieThemeMode.system,
                     colors: c,
                   ),
-                  _Divider(colors: c),
+                  _Divider(
+                    colors: c,
+                  ),
                   _ThemeTile(
                     title: 'Light Gold',
                     subtitle: t.lightSub,
@@ -141,7 +223,9 @@ class SettingsScreen extends StatelessWidget {
                     selected: session.themeMode == EmieThemeMode.light,
                     colors: c,
                   ),
-                  _Divider(colors: c),
+                  _Divider(
+                    colors: c,
+                  ),
                   _ThemeTile(
                     title: 'Black Gold',
                     subtitle: t.darkSub,
@@ -154,7 +238,15 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 26),
 
-              _SectionTitle(t.language, colors: c),
+              // ==========================================
+              // SPRACHE
+              // ==========================================
+
+              _SectionTitle(
+                t.language,
+                colors: c,
+              ),
+
               _SettingsCard(
                 colors: c,
                 children: [
@@ -165,7 +257,9 @@ class SettingsScreen extends StatelessWidget {
                     selected: session.language == 'de',
                     colors: c,
                   ),
-                  _Divider(colors: c),
+                  _Divider(
+                    colors: c,
+                  ),
                   _LanguageTile(
                     title: 'English',
                     subtitle: 'App language English',
@@ -178,7 +272,15 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 26),
 
-              _SectionTitle('Emie', colors: c),
+              // ==========================================
+              // EMIE
+              // ==========================================
+
+              _SectionTitle(
+                'Emie',
+                colors: c,
+              ),
+
               _SettingsCard(
                 colors: c,
                 children: [
@@ -188,31 +290,186 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: t.plusSub,
                     colors: c,
                   ),
-                  _Divider(colors: c),
-                  _InfoTile(
-                    icon: Icons.info_outline_rounded,
-                    title: t.version,
-                    subtitle: 'Emie Alpha · 0.1',
+
+                  _Divider(
                     colors: c,
                   ),
-                  _Divider(colors: c),
-                  _InfoTile(
+
+                  // ======================================
+                  // DYNAMISCHE APP-VERSION
+                  // ======================================
+
+                  _VersionTile(
+                    title: t.version,
+                    colors: c,
+                  ),
+
+                  _Divider(
+                    colors: c,
+                  ),
+
+                  _ActionTile(
                     icon: Icons.privacy_tip_outlined,
                     title: t.privacy,
-                    subtitle: t.comingSoon,
+                    subtitle: 'emiso.ai',
+                    colors: c,
+                    onTap: () => _openLegalPage(
+                      context,
+                      _privacyUrl,
+                    ),
+                  ),
+
+                  _Divider(
                     colors: c,
                   ),
-                  _Divider(colors: c),
-                  _InfoTile(
+
+                  _ActionTile(
                     icon: Icons.description_outlined,
                     title: t.terms,
-                    subtitle: t.comingSoon,
+                    subtitle: 'emiso.ai',
                     colors: c,
+                    onTap: () => _openLegalPage(
+                      context,
+                      _termsUrl,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ==============================================
+  // ACCOUNT DELETE FLOW
+  // ==============================================
+
+  Future<void> _handleDeleteAccount(
+    BuildContext context,
+    _SettingsText t,
+    _SettingsColors colors,
+  ) async {
+    // -------------------------------------------
+    // 1. Bestätigung
+    // -------------------------------------------
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: colors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: SettingsScreen._danger.withOpacity(0.24),
+              width: 0.8,
+            ),
+          ),
+          title: Text(
+            t.deleteConfirmTitle,
+            style: TextStyle(
+              color: colors.text,
+              fontFamily: 'Inter',
+              fontSize: 19,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            t.deleteConfirmBody,
+            style: TextStyle(
+              color: colors.muted,
+              fontFamily: 'Inter',
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            14,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
+              },
+              child: Text(
+                t.cancel,
+                style: TextStyle(
+                  color: colors.muted,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
+              },
+              child: Text(
+                t.deleteAccount,
+                style: const TextStyle(
+                  color: SettingsScreen._danger,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    // User hat abgebrochen.
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    // -------------------------------------------
+    // 2. Backend + lokale Session löschen
+    // -------------------------------------------
+
+    final auth = context.read<AuthController>();
+
+    final deleted = await auth.deleteAccount();
+
+    // Bei Erfolg löscht AuthRepository:
+    //
+    // - Secure Storage Tokens
+    // - SessionStore
+    //
+    // app.dart reagiert darauf und zeigt
+    // automatisch wieder den Login-Screen.
+    if (deleted) {
+      return;
+    }
+
+    // -------------------------------------------
+    // 3. Fehler anzeigen
+    // -------------------------------------------
+
+    if (!context.mounted) {
+      return;
+    }
+
+    final message = auth.errorMessage ?? t.deleteFailed;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
         ),
       ),
     );
@@ -224,35 +481,31 @@ class SettingsScreen extends StatelessWidget {
 // ==============================================
 
 class _SettingsColors {
-  _SettingsColors({required this.isDark});
+  _SettingsColors({
+    required this.isDark,
+  });
 
   final bool isDark;
 
-  Color get bg => isDark
-      ? const Color(0xFF050307)
-      : const Color(0xFFF4F1EA);
+  Color get bg => isDark ? const Color(0xFF050307) : const Color(0xFFF4F1EA);
 
-  Color get bg2 => isDark
-      ? const Color(0xFF0A0712)
-      : const Color(0xFFFFFBF3);
+  Color get bg2 => isDark ? const Color(0xFF0A0712) : const Color(0xFFFFFBF3);
 
-  Color get card => isDark
-      ? const Color(0xFF141312)
-      : const Color(0xFFFCF8F1);
+  Color get card => isDark ? const Color(0xFF141312) : const Color(0xFFFCF8F1);
 
-  Color get text => isDark
-      ? Colors.white
-      : const Color(0xFF17130C);
+  Color get text => isDark ? Colors.white : const Color(0xFF17130C);
 
-  Color get muted => isDark
-      ? const Color(0xFF8E8B85)
-      : const Color(0xFF736B5F);
+  Color get muted => isDark ? const Color(0xFF8E8B85) : const Color(0xFF736B5F);
 
   Color get border => SettingsScreen._gold.withOpacity(
         isDark ? 0.12 : 0.24,
       );
 
-  List<Color> get gradient => [bg, bg2, bg];
+  List<Color> get gradient => [
+        bg,
+        bg2,
+        bg,
+      ];
 }
 
 // ==============================================
@@ -260,42 +513,77 @@ class _SettingsColors {
 // ==============================================
 
 class _SettingsText {
-  _SettingsText(String code) : isDe = code == 'de';
+  _SettingsText(
+    String code,
+  ) : isDe = code == 'de';
 
   final bool isDe;
 
   String get settings => isDe ? 'Einstellungen' : 'Settings';
+
   String get account => isDe ? 'Konto' : 'Account';
+
   String get appearance => isDe ? 'Erscheinungsbild' : 'Appearance';
+
   String get language => isDe ? 'Sprache' : 'Language';
+
   String get email => isDe ? 'E-Mail' : 'Email';
+
   String get changePassword => isDe ? 'Passwort ändern' : 'Change password';
+
   String get comingSoon => isDe ? 'Kommt bald' : 'Coming soon';
+
   String get deleteAccount => isDe ? 'Konto löschen' : 'Delete account';
-  String get requestDeletion =>
-      isDe ? 'Kontolöschung anfordern' : 'Request account deletion';
-  String get couldNotOpenDeletionPage => isDe
-      ? 'Die Seite zur Kontolöschung konnte nicht geöffnet werden.'
-      : 'The account deletion page could not be opened.';
+
+  String get requestDeletion => isDe
+      ? 'Konto und Daten dauerhaft löschen'
+      : 'Permanently delete account and data';
+
+  String get deletingAccount =>
+      isDe ? 'Konto wird gelöscht …' : 'Deleting account …';
+
+  String get deleteConfirmTitle =>
+      isDe ? 'Konto wirklich löschen?' : 'Delete account?';
+
+  String get deleteConfirmBody => isDe
+      ? 'Dein Emie-Konto und die damit verbundenen '
+          'Daten werden dauerhaft gelöscht. '
+          'Dieser Vorgang kann nicht rückgängig '
+          'gemacht werden.'
+      : 'Your Emie account and its associated data '
+          'will be permanently deleted. '
+          'This action cannot be undone.';
+
+  String get cancel => isDe ? 'Abbrechen' : 'Cancel';
+
+  String get deleteFailed => isDe
+      ? 'Das Konto konnte nicht gelöscht werden.'
+      : 'The account could not be deleted.';
+
   String get logout => isDe ? 'Abmelden' : 'Log out';
+
   String get backToLogin => isDe ? 'Zurück zum Login' : 'Back to login';
+
   String get notLoaded => isDe ? 'Noch nicht geladen' : 'Not loaded yet';
 
-  String get system => isDe ? 'System' : 'System';
+  String get system => 'System';
+
   String get systemSub =>
       isDe ? 'Emie folgt deinem Gerät' : 'Emie follows your device';
-  String get lightSub => isDe
-      ? 'Helles Design mit Gold-Akzent'
-      : 'Light design with gold accent';
-  String get darkSub =>
-      isDe ? 'Dunkles Premium-Design' : 'Dark premium design';
+
+  String get lightSub =>
+      isDe ? 'Helles Design mit Gold-Akzent' : 'Light design with gold accent';
+
+  String get darkSub => isDe ? 'Dunkles Premium-Design' : 'Dark premium design';
 
   String get plusSub => isDe
       ? 'Mehr Tokens & früherer Feature-Zugang'
       : 'More tokens & early feature access';
 
-  String get version => isDe ? 'Version' : 'Version';
+  String get version => 'Version';
+
   String get privacy => isDe ? 'Datenschutz' : 'Privacy';
+
   String get terms => isDe ? 'Nutzungsbedingungen' : 'Terms of use';
 }
 
@@ -323,15 +611,21 @@ class _Header extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: colors.text.withOpacity(0.025),
+              color: colors.text.withOpacity(
+                0.025,
+              ),
               border: Border.all(
-                color: SettingsScreen._gold.withOpacity(0.20),
+                color: SettingsScreen._gold.withOpacity(
+                  0.20,
+                ),
                 width: 0.7,
               ),
             ),
             child: Icon(
               Icons.close_rounded,
-              color: SettingsScreen._gold.withOpacity(0.82),
+              color: SettingsScreen._gold.withOpacity(
+                0.82,
+              ),
               size: 20,
             ),
           ),
@@ -348,7 +642,9 @@ class _Header extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        const SizedBox(width: 38),
+        const SizedBox(
+          width: 38,
+        ),
       ],
     );
   }
@@ -374,22 +670,36 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(0.7),
+      padding: const EdgeInsets.all(
+        0.7,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(
+          24,
+        ),
         gradient: LinearGradient(
           colors: [
-            SettingsScreen._goldSoft.withOpacity(0.24),
-            SettingsScreen._gold.withOpacity(0.32),
-            SettingsScreen._goldSoft.withOpacity(0.10),
+            SettingsScreen._goldSoft.withOpacity(
+              0.24,
+            ),
+            SettingsScreen._gold.withOpacity(
+              0.32,
+            ),
+            SettingsScreen._goldSoft.withOpacity(
+              0.10,
+            ),
           ],
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(
+          18,
+        ),
         decoration: BoxDecoration(
           color: colors.card,
-          borderRadius: BorderRadius.circular(23),
+          borderRadius: BorderRadius.circular(
+            23,
+          ),
         ),
         child: Row(
           children: [
@@ -398,9 +708,13 @@ class _ProfileCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: SettingsScreen._goldSoft.withOpacity(0.10),
+                color: SettingsScreen._goldSoft.withOpacity(
+                  0.10,
+                ),
                 border: Border.all(
-                  color: SettingsScreen._gold.withOpacity(0.30),
+                  color: SettingsScreen._gold.withOpacity(
+                    0.30,
+                  ),
                 ),
               ),
               child: Center(
@@ -415,7 +729,9 @@ class _ProfileCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(
+              width: 14,
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +745,9 @@ class _ProfileCard extends StatelessWidget {
                       fontFamily: 'Inter',
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(
+                    height: 5,
+                  ),
                   Text(
                     email,
                     overflow: TextOverflow.ellipsis,
@@ -454,7 +772,10 @@ class _ProfileCard extends StatelessWidget {
 // ==============================================
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title, {required this.colors});
+  const _SectionTitle(
+    this.title, {
+    required this.colors,
+  });
 
   final String title;
   final _SettingsColors colors;
@@ -462,11 +783,16 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 9),
+      padding: const EdgeInsets.only(
+        left: 2,
+        bottom: 9,
+      ),
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: SettingsScreen._gold.withOpacity(0.70),
+          color: SettingsScreen._gold.withOpacity(
+            0.70,
+          ),
           fontSize: 11.5,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.3,
@@ -493,16 +819,25 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        6,
+        16,
+        6,
+      ),
       decoration: BoxDecoration(
         color: colors.card,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(
+          22,
+        ),
         border: Border.all(
           color: colors.border,
           width: 0.7,
         ),
       ),
-      child: Column(children: children),
+      child: Column(
+        children: children,
+      ),
     );
   }
 }
@@ -510,6 +845,43 @@ class _SettingsCard extends StatelessWidget {
 // ==============================================
 // TILES
 // ==============================================
+
+class _VersionTile extends StatelessWidget {
+  const _VersionTile({
+    required this.title,
+    required this.colors,
+  });
+
+  static final Future<PackageInfo> _packageInfoFuture =
+      PackageInfo.fromPlatform();
+
+  final String title;
+  final _SettingsColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfoFuture,
+      builder: (
+        context,
+        snapshot,
+      ) {
+        final info = snapshot.data;
+
+        final subtitle = info == null
+            ? 'Emie · —'
+            : 'Emie · ${info.version} (${info.buildNumber})';
+
+        return _InfoTile(
+          icon: Icons.info_outline_rounded,
+          title: title,
+          subtitle: subtitle,
+          colors: colors,
+        );
+      },
+    );
+  }
+}
 
 class _InfoTile extends StatelessWidget {
   const _InfoTile({
@@ -543,14 +915,16 @@ class _ActionTile extends StatelessWidget {
     required this.onTap,
     required this.colors,
     this.danger = false,
+    this.loading = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final _SettingsColors colors;
   final bool danger;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -560,6 +934,7 @@ class _ActionTile extends StatelessWidget {
       subtitle: subtitle,
       onTap: onTap,
       danger: danger,
+      loading: loading,
       trailing: Icons.chevron_right_rounded,
       colors: colors,
     );
@@ -592,7 +967,9 @@ class _ThemeTile extends StatelessWidget {
       selected: selected,
       colors: colors,
       onTap: () {
-        context.read<SessionStore>().setThemeMode(value);
+        context.read<SessionStore>().setThemeMode(
+              value,
+            );
       },
     );
   }
@@ -624,7 +1001,9 @@ class _LanguageTile extends StatelessWidget {
       selected: selected,
       colors: colors,
       onTap: () {
-        context.read<SessionStore>().setLanguage(code);
+        context.read<SessionStore>().setLanguage(
+              code,
+            );
       },
     );
   }
@@ -640,6 +1019,7 @@ class _BaseTile extends StatelessWidget {
     this.trailing,
     this.selected = false,
     this.danger = false,
+    this.loading = false,
   });
 
   final IconData icon;
@@ -650,6 +1030,7 @@ class _BaseTile extends StatelessWidget {
   final IconData? trailing;
   final bool selected;
   final bool danger;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -660,10 +1041,14 @@ class _BaseTile extends StatelessWidget {
             : colors.text;
 
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      onTap: loading ? null : onTap,
+      borderRadius: BorderRadius.circular(
+        14,
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(
+          vertical: 13,
+        ),
         child: Row(
           children: [
             Icon(
@@ -675,7 +1060,9 @@ class _BaseTile extends StatelessWidget {
                     ),
               size: 22,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(
+              width: 14,
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +1076,9 @@ class _BaseTile extends StatelessWidget {
                       fontFamily: 'Inter',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(
+                    height: 4,
+                  ),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -702,10 +1091,21 @@ class _BaseTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null)
+            if (loading)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: danger ? SettingsScreen._danger : SettingsScreen._gold,
+                ),
+              )
+            else if (trailing != null)
               Icon(
                 trailing,
-                color: SettingsScreen._gold.withOpacity(0.50),
+                color: SettingsScreen._gold.withOpacity(
+                  0.50,
+                ),
               ),
           ],
         ),
@@ -714,8 +1114,14 @@ class _BaseTile extends StatelessWidget {
   }
 }
 
+// ==============================================
+// DIVIDER
+// ==============================================
+
 class _Divider extends StatelessWidget {
-  const _Divider({required this.colors});
+  const _Divider({
+    required this.colors,
+  });
 
   final _SettingsColors colors;
 

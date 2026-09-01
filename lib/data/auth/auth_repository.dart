@@ -62,8 +62,13 @@ class AuthRepository {
   // -------------------------------------------
   // • E-Mail-Bestätigung
   // -------------------------------------------
-  Future<VerifyResponse> verifyEmail(String token) async {
-    final res = await _api.verifyEmail(token: token);
+  Future<VerifyResponse> verifyEmail(
+    String token,
+  ) async {
+    final res = await _api.verifyEmail(
+      token: token,
+    );
+
     return res;
   }
 
@@ -72,14 +77,18 @@ class AuthRepository {
   // -------------------------------------------
   Future<UserProfile> refreshProfile() async {
     final user = await _api.me();
+
     _session.updateUser(user);
+
     return user;
   }
 
   // -------------------------------------------
   // • Google Login
   // -------------------------------------------
-  Future<UserProfile> loginWithGoogle(String idToken) async {
+  Future<UserProfile> loginWithGoogle(
+    String idToken,
+  ) async {
     final tokens = await _api.loginWithGoogle(
       idToken: idToken,
     );
@@ -103,7 +112,9 @@ class AuthRepository {
   // -------------------------------------------
   // • Apple Login
   // -------------------------------------------
-  Future<UserProfile> loginWithApple(String identityToken) async {
+  Future<UserProfile> loginWithApple(
+    String identityToken,
+  ) async {
     final tokens = await _api.loginWithApple(
       identityToken: identityToken,
     );
@@ -130,8 +141,11 @@ class AuthRepository {
   Future<void> refreshTokens() async {
     final refreshToken = _session.refreshToken;
 
-    if (refreshToken == null || refreshToken.isEmpty) {
-      throw Exception('Kein Refresh-Token vorhanden.');
+    if (refreshToken == null ||
+        refreshToken.isEmpty) {
+      throw Exception(
+        'Kein Refresh-Token vorhanden.',
+      );
     }
 
     final tokens = await _api.refresh(
@@ -157,25 +171,49 @@ class AuthRepository {
 
     try {
       // Refresh-Token zuerst serverseitig widerrufen.
-      if (refreshToken != null && refreshToken.isNotEmpty) {
+      if (refreshToken != null &&
+          refreshToken.isNotEmpty) {
         await _api.logout(
           refreshToken: refreshToken,
         );
       }
     } catch (_) {
-      // Backend-/Netzwerkfehler dürfen den lokalen Logout
-      // niemals verhindern.
+      // Backend-/Netzwerkfehler dürfen den lokalen
+      // Logout niemals verhindern.
     } finally {
-      // Lokale Tokens und Session werden garantiert gelöscht.
+      // Lokale Tokens und Session werden garantiert
+      // gelöscht.
       await SecureStorageService.clearTokens();
       _session.clear();
     }
   }
 
   // -------------------------------------------
+  // • Account löschen
+  // -------------------------------------------
+  Future<void> deleteAccount() async {
+    // WICHTIG:
+    // Zuerst muss der Account serverseitig erfolgreich
+    // gelöscht werden.
+    //
+    // Falls DELETE /v1/me fehlschlägt, bleiben lokale
+    // Session + Tokens bestehen, damit der User nicht
+    // fälschlicherweise ausgeloggt wird, obwohl sein
+    // Account noch existiert.
+    await _api.deleteAccount();
+
+    // Backend-Löschung war erfolgreich:
+    // lokale Tokens und User-Session vollständig entfernen.
+    await SecureStorageService.clearTokens();
+    _session.clear();
+  }
+
+  // -------------------------------------------
   // • Forgot Password
   // -------------------------------------------
-  Future<void> requestPasswordReset(String email) async {
+  Future<void> requestPasswordReset(
+    String email,
+  ) async {
     await _api.requestPasswordReset(
       email: email,
     );
