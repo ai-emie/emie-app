@@ -20,6 +20,21 @@ class ChatController extends ChangeNotifier {
   }
 
   final ChatRepository _repository;
+  // Requests may finish after the authenticated subtree has been removed.
+  // Every async result belongs only to this controller's lifetime.
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _messages.clear();
+    _sessions.clear();
+    _chatSessionId = '';
+    _isSending = false;
+    _isLoadingHistory = false;
+    _error = null;
+    super.dispose();
+  }
 
   // ----------------------------------------------
   // State: Sessions + Messages
@@ -92,8 +107,10 @@ class ChatController extends ChangeNotifier {
   // DAILY WELCOME
   // ----------------------------------------------
   Future<String> getDailyWelcome() async {
+    if (_disposed) return '';
     try {
-      return await _repository.getDailyWelcome();
+      final welcome = await _repository.getDailyWelcome();
+      return _disposed ? '' : welcome;
     } catch (_) {
       // Kein scheinbar personalisierter Fallback.
       // Leerer String wird im HomeScreen als
@@ -106,19 +123,23 @@ class ChatController extends ChangeNotifier {
   // INIT / LOAD
   // ----------------------------------------------
   Future<void> loadSessions() async {
+    if (_disposed) return;
     _error = null;
     _isLoadingHistory = true;
 
     notifyListeners();
 
     try {
+      if (_disposed) return;
       final items =
           await _repository.listSessions();
+      if (_disposed) return;
 
       _sessions
         ..clear()
         ..addAll(items);
     } on DioException catch (e) {
+      if (_disposed) return;
       _debugDio(
         'ChatController.loadSessions DioException',
         e,
@@ -127,6 +148,7 @@ class ChatController extends ChangeNotifier {
       _error =
           ApiError.fromDio(e).message;
     } catch (e) {
+      if (_disposed) return;
       _debugErrorType(
         'ChatController.loadSessions error',
         e,
@@ -135,16 +157,17 @@ class ChatController extends ChangeNotifier {
       _error =
           'Konnte Chats nicht laden.';
     } finally {
-      _isLoadingHistory = false;
-
-      notifyListeners();
+      if (!_disposed) {
+        _isLoadingHistory = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> openChat(
     String sessionId,
   ) async {
-    if (_isSending) return;
+    if (_disposed || _isSending) return;
 
     _error = null;
     _isLoadingHistory = true;
@@ -152,6 +175,7 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (_disposed) return;
       _chatSessionId = sessionId;
 
       // Backend:
@@ -161,11 +185,13 @@ class ChatController extends ChangeNotifier {
           await _repository.getMessages(
         sessionId,
       );
+      if (_disposed) return;
 
       _messages
         ..clear()
         ..addAll(msgs);
     } on DioException catch (e) {
+      if (_disposed) return;
       _debugDio(
         'ChatController.openChat DioException',
         e,
@@ -174,6 +200,7 @@ class ChatController extends ChangeNotifier {
       _error =
           ApiError.fromDio(e).message;
     } catch (e) {
+      if (_disposed) return;
       _debugErrorType(
         'ChatController.openChat error',
         e,
@@ -182,9 +209,10 @@ class ChatController extends ChangeNotifier {
       _error =
           'Konnte Chat nicht öffnen.';
     } finally {
-      _isLoadingHistory = false;
-
-      notifyListeners();
+      if (!_disposed) {
+        _isLoadingHistory = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -198,7 +226,7 @@ class ChatController extends ChangeNotifier {
   // sobald send() mit chat_session_id aufgerufen wird.
   // ----------------------------------------------
   void newChat() {
-    if (_isSending) return;
+    if (_disposed || _isSending) return;
 
     _error = null;
 
@@ -216,12 +244,13 @@ class ChatController extends ChangeNotifier {
   Future<void> deleteChat(
     String sessionId,
   ) async {
-    if (_isSending) return;
+    if (_disposed || _isSending) return;
 
     try {
       await _repository.deleteSession(
         sessionId,
       );
+      if (_disposed) return;
 
       // Wenn aktueller Chat gelöscht wurde,
       // auf einen neuen lokalen Chat wechseln.
@@ -234,6 +263,7 @@ class ChatController extends ChangeNotifier {
 
       await loadSessions();
     } on DioException catch (e) {
+      if (_disposed) return;
       // Soft-Fail bleibt bestehen.
       // Debug-Logging aber nur metadata-only.
       _debugDio(
@@ -241,12 +271,13 @@ class ChatController extends ChangeNotifier {
         e,
       );
     } catch (e) {
+      if (_disposed) return;
       _debugErrorType(
         'ChatController.deleteChat error',
         e,
       );
     } finally {
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -258,7 +289,8 @@ class ChatController extends ChangeNotifier {
   ) async {
     final trimmed = text.trim();
 
-    if (trimmed.isEmpty ||
+    if (_disposed ||
+        trimmed.isEmpty ||
         _isSending) {
       return;
     }
@@ -295,11 +327,13 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (_disposed) return;
       final reply =
           await _repository.sendUserMessage(
         text: trimmed,
         chatSessionId: _chatSessionId,
       );
+      if (_disposed) return;
 
       final cleanText =
           _sanitizeAssistantText(
@@ -332,6 +366,7 @@ class ChatController extends ChangeNotifier {
       // title / updated_at kommen aus der DB.
       await loadSessions();
     } on DioException catch (e) {
+      if (_disposed) return;
       _debugDio(
         'ChatController.send DioException',
         e,
@@ -350,6 +385,7 @@ class ChatController extends ChangeNotifier {
         'Versuch es bitte nochmal.',
       );
     } catch (e) {
+      if (_disposed) return;
       _debugErrorType(
         'ChatController.send unknown error',
         e,
@@ -365,9 +401,10 @@ class ChatController extends ChangeNotifier {
         'Versuch es bitte nochmal.',
       );
     } finally {
-      _isSending = false;
-
-      notifyListeners();
+      if (!_disposed) {
+        _isSending = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -405,6 +442,7 @@ class ChatController extends ChangeNotifier {
   // ERROR
   // ----------------------------------------------
   void clearError() {
+    if (_disposed) return;
     _error = null;
 
     notifyListeners();

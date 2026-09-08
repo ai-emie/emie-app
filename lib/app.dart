@@ -16,7 +16,7 @@ import 'state/session_store.dart';
 import 'features/auth/controller/auth_controller.dart';
 import 'features/auth/presentation/screens/auth_screen.dart';
 
-import 'features/chat/controller/chat_controller.dart';
+import 'features/chat/presentation/widgets/authenticated_chat_scope.dart';
 
 import 'features/main/presentation/screens/main_shell.dart';
 
@@ -57,14 +57,6 @@ class EmieApp extends StatelessWidget {
             return controller;
           },
         ),
-
-        // =====================================
-        // CHAT
-        // =====================================
-
-        ChangeNotifierProvider<ChatController>(
-          create: (_) => ChatController(),
-        ),
       ],
 
       child: Consumer<SessionStore>(
@@ -93,7 +85,7 @@ class EmieApp extends StatelessWidget {
             rootNavigationState = 'unauthenticated';
           }
 
-          return MaterialApp(
+          final app = MaterialApp(
             key: ValueKey<String>(
               'emie-root-$rootNavigationState',
             ),
@@ -190,6 +182,12 @@ class EmieApp extends StatelessWidget {
                     ? const MainShell()
                     : const AuthScreen(),
           );
+
+          if (session.isBootstrapping || !session.isAuthenticated) return app;
+
+          // Own the authenticated Navigator as well as MainShell: History
+          // sheets share this scope and cannot survive an identity change.
+          return AuthenticatedChatScope(session: session, child: app);
         },
       ),
     );
