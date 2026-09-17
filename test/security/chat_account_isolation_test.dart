@@ -154,7 +154,7 @@ void main() {
       final requests = <String>[];
       _installAdapter((options) {
         requests.add('${options.method} ${options.path}');
-        return _json({'status': 'ok'});
+        return _json({'status': action == 'account delete' ? 'deleted' : 'ok'});
       });
       _login(_userA);
       final factory = _ControllerFactory();

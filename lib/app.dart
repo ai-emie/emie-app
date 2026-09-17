@@ -91,6 +91,32 @@ class EmieApp extends StatelessWidget {
             ),
 
             title: 'Emie',
+            builder: (context, child) {
+              final auth = context.watch<AuthController>();
+              final notice = auth.deletionNotice;
+              final noticeLanguage = session.isAuthenticated
+                  ? session.language
+                  : notice?.operation.language ?? session.language;
+              return Column(children: [
+                if (notice != null)
+                  Material(
+                    key: const ValueKey('account-deletion-notice'),
+                    color: Theme.of(context).colorScheme.surface,
+                    child: SafeArea(bottom: false, child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(child: Text(notice.message(noticeLanguage))),
+                        TextButton(
+                          key: const ValueKey('close-account-deletion-notice'),
+                          onPressed: auth.dismissDeletionNotice,
+                          child: Text(noticeLanguage == 'de' ? 'Schließen' : 'Close'),
+                        ),
+                      ]),
+                    )),
+                  ),
+                Expanded(child: child ?? const SizedBox.shrink()),
+              ]);
+            },
 
             debugShowCheckedModeBanner: false,
 
@@ -187,7 +213,8 @@ class EmieApp extends StatelessWidget {
 
           // Own the authenticated Navigator as well as MainShell: History
           // sheets share this scope and cannot survive an identity change.
-          return AuthenticatedChatScope(session: session, child: app);
+          return AuthenticatedChatScope(
+            key: ValueKey(session.generation), session: session, child: app);
         },
       ),
     );

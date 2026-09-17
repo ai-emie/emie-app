@@ -355,6 +355,9 @@ class SettingsScreen extends StatelessWidget {
     // 1. Bestätigung
     // -------------------------------------------
 
+    final auth = context.read<AuthController>();
+    final operation = auth.prepareAccountDeletion();
+    var dialogResolved = false;
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -395,6 +398,8 @@ class SettingsScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
+                if (dialogResolved) return;
+                dialogResolved = true;
                 Navigator.of(
                   dialogContext,
                 ).pop(false);
@@ -410,6 +415,8 @@ class SettingsScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
+                if (dialogResolved) return;
+                dialogResolved = true;
                 Navigator.of(
                   dialogContext,
                 ).pop(true);
@@ -430,6 +437,7 @@ class SettingsScreen extends StatelessWidget {
 
     // User hat abgebrochen.
     if (confirmed != true) {
+      auth.cancelAccountDeletion(operation);
       return;
     }
 
@@ -441,38 +449,9 @@ class SettingsScreen extends StatelessWidget {
     // 2. Backend + lokale Session löschen
     // -------------------------------------------
 
-    final auth = context.read<AuthController>();
-
-    final deleted = await auth.deleteAccount();
-
-    // Bei Erfolg löscht AuthRepository:
-    //
-    // - Secure Storage Tokens
-    // - SessionStore
-    //
-    // app.dart reagiert darauf und zeigt
-    // automatisch wieder den Login-Screen.
-    if (deleted) {
-      return;
-    }
-
-    // -------------------------------------------
-    // 3. Fehler anzeigen
-    // -------------------------------------------
-
-    if (!context.mounted) {
-      return;
-    }
-
-    final message = auth.errorMessage ?? t.deleteFailed;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-        ),
-      ),
-    );
+    // The operation was captured before opening the dialog. The controller
+    // rechecks it and owns result visibility beyond this widget's lifetime.
+    await auth.deleteAccount(operation);
   }
 }
 

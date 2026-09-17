@@ -3,6 +3,7 @@
 // Pfad: lib/features/auth/controller/auth_controller.dart
 // ===============================================
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -13,30 +14,132 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../api/api_error.dart';
 import '../../../data/auth/auth_repository.dart';
+import '../../../data/auth/auth_models.dart';
 import '../../../state/session_store.dart';
 
 class AuthController extends ChangeNotifier {
-  AuthController() : _repo = AuthRepository();
+  AuthController({AuthRepository? repository}) : _repo = repository ?? AuthRepository() {
+    _session.addListener(_sessionChanged);
+  }
 
   final AuthRepository _repo;
 
+  final SessionStore _session = SessionStore.instance;
+  bool _disposed = false;
   bool _isLoading = false;
   String? _errorMessage;
+  _AuthAction? _action;
+  AccountDeletionResult? _deletionNotice;
+  int? _noticeGeneration;
+  Object? _dismissedNotice;
+  AccountDeletionOperation? _dialogOperation;
 
-  bool get isLoading => _isLoading;
+  bool get isLoading => _isLoading && _action != null && _owns(_action!);
   String? get errorMessage => _errorMessage;
+  AccountDeletionResult? get deletionNotice => _deletionNotice;
 
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
+  bool _owns(_AuthAction action) => !_disposed && identical(_action, action) &&
+      _session.canFinish(action.origin);
+
+  _AuthAction _beginAction({bool login = false, bool bootstrap = false, bool loading = true}) {
+    final origin = login ? _session.beginSession() :
+        bootstrap ? _session.beginBootstrap() : _session.generation;
+    final action = _AuthAction(origin);
+    if (!_session.isCurrent(origin)) return action;
+    _action = action;
+    _errorMessage = null;
+    _isLoading = loading;
+    if (!_disposed) notifyListeners();
+    return action;
   }
 
-  void _setError(String? message) {
+  void _setActionError(_AuthAction action, String? message) {
+    if (!_owns(action)) return;
     _errorMessage = message;
     notifyListeners();
   }
 
-  void clearError() => _setError(null);
+  void _finishAction(_AuthAction action) {
+    if (!_owns(action)) return;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
+    if (!_disposed) notifyListeners();
+  }
+
+  void _sessionChanged() {
+    if (_disposed) return;
+    if (_action != null && !_session.canFinish(_action!.origin)) {
+      _action = null;
+      _errorMessage = null;
+      _isLoading = false;
+    }
+    if (_noticeGeneration != null && !_session.isCurrent(_noticeGeneration!)) {
+      _deletionNotice = null;
+      _noticeGeneration = null;
+    }
+    notifyListeners();
+  }
+
+  void dismissDeletionNotice() {
+    _dismissedNotice = _deletionNotice?.operation.id;
+    _deletionNotice = null;
+    _noticeGeneration = null;
+    if (!_disposed) notifyListeners();
+  }
+
+  void _showDeletionResult(_AuthAction action, AccountDeletionResult result) {
+    final visibleGeneration = result.completionGeneration ?? result.operation.originGeneration;
+    if (!_owns(action) || !_session.isCurrent(visibleGeneration) ||
+        result.server == DeletionServerResult.notSent ||
+        result.sessionEnd == LocalSessionEnd.differentSession ||
+        identical(_dismissedNotice, result.operation.id)) {
+      return;
+    }
+    _deletionNotice = result;
+    _noticeGeneration = visibleGeneration;
+    notifyListeners();
+  }
+
+  // Only Google plugin calls share this queue. No HTTP request holds its lock.
+  static Future<void>? _googleTail;
+  static Future<T?> _orderedGoogle<T>(bool Function() isCurrent, Future<T> Function() action) {
+    final previous = _googleTail;
+    final released = Completer<void>();
+    _googleTail = released.future;
+    return () async {
+      if (previous != null) await previous;
+      try {
+        if (!isCurrent()) return null;
+        return await action();
+      } finally {
+        if (identical(_googleTail, released.future)) _googleTail = null;
+        released.complete();
+      }
+    }();
+  }
+
+  Future<LocalCleanupStep> _googleSignOut(int completion) async {
+    try {
+      final ran = await _orderedGoogle<bool>(() => _session.isCurrent(completion), () async {
+        await GoogleSignIn(scopes: const ['email']).signOut();
+        return true;
+      });
+      return ran == true ? LocalCleanupStep.confirmed : LocalCleanupStep.differentSession;
+    } catch (_) {
+      return LocalCleanupStep.unconfirmed;
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _session.removeListener(_sessionChanged);
+    super.dispose();
+  }
 
   // -------------------------------------------
   //  Hilfsfunktion: Detail aus Dio-Error holen
@@ -112,16 +215,18 @@ class AuthController extends ChangeNotifier {
     String email,
     String password,
   ) async {
-    _setError(null);
-    _setLoading(true);
+    final action = _beginAction(login: true);
+    _setActionError(action, null);
+
 
     try {
       await _repo.loginWithEmail(
         email,
         password,
+        generation: action.origin,
       );
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
       final status = e.response?.statusCode ?? 0;
@@ -132,28 +237,28 @@ class AuthController extends ChangeNotifier {
 
       if (status == 401) {
         if (detail.contains('unknown email')) {
-          _setError(
+          _setActionError(action,
             'Diese E-Mail ist nicht registriert.',
           );
         } else if (detail.contains('wrong password')) {
-          _setError(
+          _setActionError(action,
             'Das Passwort ist falsch.',
           );
         } else if (detail.contains('not verified')) {
-          _setError(
+          _setActionError(action,
             'Bitte bestätige zuerst deine E-Mail.',
           );
         } else {
-          _setError(
+          _setActionError(action,
             'E-Mail oder Passwort ist falsch.',
           );
         }
       } else if (status >= 500) {
-        _setError(
+        _setActionError(action,
           'Serverfehler. Bitte versuch es später erneut.',
         );
       } else {
-        _setError(
+        _setActionError(action,
           apiError.message,
         );
       }
@@ -165,7 +270,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Login fehlgeschlagen. '
         'Bitte versuch es später erneut.',
       );
@@ -177,7 +282,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -189,17 +294,19 @@ class AuthController extends ChangeNotifier {
     String email,
     String password,
   ) async {
-    _setError(null);
-    _setLoading(true);
+    final action = _beginAction();
+    _setActionError(action, null);
+
 
     try {
       await _repo.registerWithEmail(
         name: name,
         email: email,
         password: password,
+        generation: action.origin,
       );
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
       final status = e.response?.statusCode ?? 0;
@@ -212,20 +319,20 @@ class AuthController extends ChangeNotifier {
         if (detail.contains('already registered') ||
             detail.contains('already exists') ||
             detail.contains('email taken')) {
-          _setError(
+          _setActionError(action,
             'Diese E-Mail ist bereits registriert.',
           );
         } else {
-          _setError(
+          _setActionError(action,
             apiError.message,
           );
         }
       } else if (status >= 500) {
-        _setError(
+        _setActionError(action,
           'Serverfehler. Bitte versuch es später erneut.',
         );
       } else {
-        _setError(
+        _setActionError(action,
           apiError.message,
         );
       }
@@ -237,7 +344,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Registrierung fehlgeschlagen. '
         'Versuche es später erneut.',
       );
@@ -249,7 +356,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -259,13 +366,14 @@ class AuthController extends ChangeNotifier {
   Future<bool> verifyEmail(
     String token,
   ) async {
-    _setError(null);
-    _setLoading(true);
+    final action = _beginAction();
+    _setActionError(action, null);
+
 
     try {
-      await _repo.verifyEmail(token);
+      await _repo.verifyEmail(token, generation: action.origin);
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on DioException catch (e) {
       final apiError = ApiError.fromDio(e);
       final status = e.response?.statusCode ?? 0;
@@ -277,21 +385,21 @@ class AuthController extends ChangeNotifier {
       if (status == 400 || status == 401) {
         if (detail.contains('expired') ||
             detail.contains('invalid')) {
-          _setError(
+          _setActionError(action,
             'Bestätigung fehlgeschlagen. '
             'Der Link ist ungültig oder abgelaufen.',
           );
         } else {
-          _setError(
+          _setActionError(action,
             apiError.message,
           );
         }
       } else if (status >= 500) {
-        _setError(
+        _setActionError(action,
           'Serverfehler. Bitte versuch es später erneut.',
         );
       } else {
-        _setError(
+        _setActionError(action,
           apiError.message,
         );
       }
@@ -303,7 +411,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Bestätigung fehlgeschlagen. '
         'Link vielleicht abgelaufen.',
       );
@@ -315,7 +423,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -323,17 +431,19 @@ class AuthController extends ChangeNotifier {
   //  APPLE LOGIN (native, iOS/macOS)
   // -------------------------------------------
   Future<bool> loginWithApple() async {
-    _setError(null);
+    final action = _beginAction(login: true);
+    _setActionError(action, null);
 
     if (!Platform.isIOS && !Platform.isMacOS) {
-      _setError(
+      _setActionError(action,
         'Apple Login ist nur auf Apple-Geräten verfügbar.',
       );
 
+      _finishAction(action);
       return false;
     }
 
-    _setLoading(true);
+
 
     try {
       final credential =
@@ -348,7 +458,7 @@ class AuthController extends ChangeNotifier {
           credential.identityToken;
 
       if (idToken == null) {
-        _setError(
+        _setActionError(action,
           'Apple Login fehlgeschlagen '
           '(kein ID-Token erhalten).',
         );
@@ -358,16 +468,17 @@ class AuthController extends ChangeNotifier {
 
       await _repo.loginWithApple(
         idToken,
+        generation: action.origin,
       );
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
-        _setError(
+        _setActionError(action,
           'Apple Login abgebrochen.',
         );
       } else {
-        _setError(
+        _setActionError(action,
           'Apple Login fehlgeschlagen. '
           'Versuche es später erneut.',
         );
@@ -385,7 +496,7 @@ class AuthController extends ChangeNotifier {
       final apiError =
           ApiError.fromDio(e);
 
-      _setError(
+      _setActionError(action,
         apiError.message,
       );
 
@@ -396,7 +507,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Apple Login fehlgeschlagen. '
         'Versuche es später erneut.',
       );
@@ -408,7 +519,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -416,8 +527,9 @@ class AuthController extends ChangeNotifier {
   //  GOOGLE LOGIN (Android / iOS)
   // -------------------------------------------
   Future<bool> loginWithGoogle() async {
-    _setError(null);
-    _setLoading(true);
+    final action = _beginAction(login: true);
+    _setActionError(action, null);
+
 
     try {
       // ---------------------------------------
@@ -431,38 +543,20 @@ class AuthController extends ChangeNotifier {
       // Deshalb hier bewusst keine Client-ID
       // hart im Dart-Code hinterlegen.
 
-      final googleSignIn = GoogleSignIn(
-        scopes: const ['email'],
-      );
-
-      // ---------------------------------------
-      // Google Dialog öffnen
-      // ---------------------------------------
-
-      final account =
-          await googleSignIn.signIn();
-
-      // User hat den Dialog freiwillig geschlossen.
-      //
-      // Das ist kein Fehler und wird deshalb
-      // UI-seitig komplett lautlos behandelt.
-      if (account == null) {
-        return false;
-      }
-
-      // ---------------------------------------
-      // Google ID-Token holen
-      // ---------------------------------------
-
-      final googleAuth =
-          await account.authentication;
-
-      final idToken =
-          googleAuth.idToken;
+      final credential = await _orderedGoogle<({bool canceled, String? token})>(
+        () => _session.isCurrent(action.origin), () async {
+          final account = await GoogleSignIn(scopes: const ['email']).signIn();
+          if (account == null) return (canceled: true, token: null);
+          if (!_session.isCurrent(action.origin)) return (canceled: true, token: null);
+          final authentication = await account.authentication;
+          return (canceled: false, token: authentication.idToken);
+        });
+      if (credential == null || credential.canceled || !_session.isCurrent(action.origin)) return false;
+      final idToken = credential.token;
 
       if (idToken == null ||
           idToken.isEmpty) {
-        _setError(
+        _setActionError(action,
           'Google-Anmeldung konnte nicht '
           'abgeschlossen werden. '
           'Bitte versuch es erneut.',
@@ -495,9 +589,10 @@ class AuthController extends ChangeNotifier {
 
       await _repo.loginWithGoogle(
         idToken,
+        generation: action.origin,
       );
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on PlatformException catch (e) {
       // ---------------------------------------
       // Google / Android Plugin Fehler
@@ -526,7 +621,7 @@ class AuthController extends ChangeNotifier {
       if (code ==
               GoogleSignIn.kNetworkError ||
           code.contains('network')) {
-        _setError(
+        _setActionError(action,
           'Keine Verbindung zu Google. '
           'Bitte prüfe deine Internetverbindung.',
         );
@@ -534,7 +629,7 @@ class AuthController extends ChangeNotifier {
         // Darunter fallen beispielsweise
         // Google-Konfigurations- oder
         // Play-Services-Probleme.
-        _setError(
+        _setActionError(action,
           'Google-Anmeldung ist gerade '
           'nicht verfügbar. '
           'Bitte versuch es erneut.',
@@ -570,19 +665,19 @@ class AuthController extends ChangeNotifier {
                   DioExceptionType.receiveTimeout;
 
       if (isConnectionError) {
-        _setError(
+        _setActionError(action,
           'Keine Verbindung zu Emie. '
           'Bitte prüfe deine Internetverbindung.',
         );
       } else if (status == 400 ||
           status == 401) {
-        _setError(
+        _setActionError(action,
           'Google-Anmeldung konnte nicht '
           'verifiziert werden. '
           'Bitte versuch es erneut.',
         );
       } else if (status >= 500) {
-        _setError(
+        _setActionError(action,
           'Emie ist gerade nicht erreichbar. '
           'Bitte versuch es später erneut.',
         );
@@ -590,7 +685,7 @@ class AuthController extends ChangeNotifier {
         final apiError =
             ApiError.fromDio(e);
 
-        _setError(
+        _setActionError(action,
           apiError.message.isNotEmpty
               ? apiError.message
               : 'Google-Anmeldung fehlgeschlagen.',
@@ -604,7 +699,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } on SocketException catch (e) {
-      _setError(
+      _setActionError(action,
         'Keine Internetverbindung. '
         'Bitte prüfe deine Verbindung.',
       );
@@ -616,7 +711,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Google-Anmeldung fehlgeschlagen. '
         'Bitte versuch es erneut.',
       );
@@ -628,7 +723,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -636,53 +731,19 @@ class AuthController extends ChangeNotifier {
   //  APP BOOTSTRAP / SESSION WIEDERHERSTELLEN
   // -------------------------------------------
   Future<void> bootstrapSession() async {
-    final session =
-        SessionStore.instance;
-
-    session.beginBootstrap();
-
+    final action = _beginAction(bootstrap: true, loading: false);
+    final origin = action.origin;
     try {
-      // 1) Gespeicherte Tokens laden
-      await session.restoreSession();
-
-      final hasAccess =
-          session.accessToken != null &&
-              session.accessToken!.isNotEmpty;
-
-      final hasRefresh =
-          session.hasRefreshToken;
-
-      // 2) Gar keine Tokens → Login
-      if (!hasAccess && !hasRefresh) {
-        return;
-      }
-
-      // 3) Profil laden.
-      //
-      // Falls der Access-Token abgelaufen ist,
-      // übernimmt der Dio-Interceptor:
-      //
-      // 401
-      // → /v1/auth/refresh
-      // → neue Tokens speichern
-      // → /v1/me erneut ausführen
-      //
-      // Falls auch Refresh fehlschlägt,
-      // löscht der ApiClient Storage + Session.
-
-      await _repo.refreshProfile();
-    } on DioException catch (e) {
-      _debugDio(
-        'Bootstrap Session DioException',
-        e,
-      );
-    } catch (e) {
-      _debugErrorType(
-        'Bootstrap Session unknown error',
-        e,
-      );
+      await _session.restoreSession(generation: origin);
+      if (!_session.isCurrent(origin)) return;
+      if (_session.accessToken?.isNotEmpty != true && !_session.hasRefreshToken) return;
+      await _repo.refreshProfile(generation: origin);
+    } catch (_) {
+      // A cold start has no cached user. An inconclusive check cannot authenticate.
+      if (_session.isCurrent(origin)) _session.endSession(origin);
     } finally {
-      session.finishBootstrap();
+      _session.finishBootstrap(generation: origin);
+      _finishAction(action);
     }
   }
 
@@ -690,117 +751,54 @@ class AuthController extends ChangeNotifier {
   //  LOGOUT
   // -------------------------------------------
   Future<void> logout() async {
-    // 1) Google Sign-In lokal abmelden
+    final action = _beginAction();
     try {
-      final googleSignIn = GoogleSignIn(
-        scopes: const ['email'],
-      );
-
-      await googleSignIn.signOut();
-
-      // Optional härter:
-      // await googleSignIn.disconnect();
-    } catch (e) {
-      _debugErrorType(
-        'Google SignOut Fehler',
-        e,
-      );
+      final ended = await _repo.logout(generation: action.origin);
+      if (ended.completionGeneration != null) await _googleSignOut(ended.completionGeneration!);
+      _setActionError(action, null);
+    } finally {
+      _finishAction(action);
     }
-
-    // 2) Emie-Session + Secure Storage löschen
-    await _repo.logout();
-
-    // 3) Fehlerstatus zurücksetzen
-    _setError(null);
-
-    notifyListeners();
   }
 
   // -------------------------------------------
   //  ACCOUNT LÖSCHEN
   // -------------------------------------------
-  Future<bool> deleteAccount() async {
-    _setError(null);
-    _setLoading(true);
+  AccountDeletionOperation prepareAccountDeletion() {
+    final existing = _dialogOperation;
+    if (existing != null && _session.isCurrent(existing.originGeneration) &&
+        existing.controllerCompletion == null) {
+      return existing;
+    }
+    return _dialogOperation = AccountDeletionOperation(_session.generation, _session.language);
+  }
 
+  void cancelAccountDeletion(AccountDeletionOperation operation) {
+    if (identical(_dialogOperation, operation)) _dialogOperation = null;
+  }
+
+  Future<AccountDeletionResult> deleteAccount([AccountDeletionOperation? operation]) {
+    final request = operation ?? prepareAccountDeletion();
+    return request.controllerCompletion ??= _deleteAccount(request);
+  }
+
+  Future<AccountDeletionResult> _deleteAccount(AccountDeletionOperation request) async {
+    if (!_session.isCurrent(request.originGeneration) || !_session.isAuthenticated) {
+      return AccountDeletionResult(operation: request, server: DeletionServerResult.notSent,
+        sessionEnd: LocalSessionEnd.differentSession, tokens: TokenCleanupResult.differentSession,
+        google: LocalCleanupStep.differentSession);
+    }
+    final action = _beginAction();
     try {
-      // Account zuerst serverseitig löschen.
-      //
-      // Das Repository entfernt die lokale Session
-      // erst NACH erfolgreichem DELETE /v1/me.
-      await _repo.deleteAccount();
-
-      // Google lokal best-effort abmelden.
-      //
-      // Ein Fehler hier ?ndert nichts daran, dass der
-      // Emie-Account bereits erfolgreich gelöscht wurde.
-      try {
-        final googleSignIn = GoogleSignIn(
-          scopes: const ['email'],
-        );
-
-        await googleSignIn.signOut();
-      } catch (e) {
-        _debugErrorType(
-          'Google SignOut nach Account-Löschung',
-          e,
-        );
+      var result = await _repo.deleteAccount(request);
+      _showDeletionResult(action, result);
+      if (result.completionGeneration != null) {
+        result = result.withGoogle(await _googleSignOut(result.completionGeneration!));
+        _showDeletionResult(action, result);
       }
-
-      _setError(null);
-
-      return true;
-    } on DioException catch (e) {
-      final status = e.response?.statusCode ?? 0;
-
-      final isConnectionError =
-          e.type == DioExceptionType.connectionError ||
-              e.type == DioExceptionType.connectionTimeout ||
-              e.type == DioExceptionType.sendTimeout ||
-              e.type == DioExceptionType.receiveTimeout;
-
-      if (isConnectionError) {
-        _setError(
-          'Account konnte nicht gelöscht werden. '
-          'Bitte prüfe deine Internetverbindung.',
-        );
-      } else if (status == 401) {
-        _setError(
-          'Deine Sitzung ist abgelaufen. '
-          'Bitte melde dich erneut an.',
-        );
-      } else if (status >= 500) {
-        _setError(
-          'Account konnte gerade nicht gelöscht werden. '
-          'Bitte versuch es später erneut.',
-        );
-      } else {
-        _setError(
-          'Account konnte nicht gelöscht werden. '
-          'Bitte versuch es erneut.',
-        );
-      }
-
-      _debugDio(
-        'deleteAccount DioException',
-        e,
-      );
-
-      return false;
-    } catch (e) {
-      _setError(
-        'Account konnte nicht gelöscht werden. '
-        'Bitte versuch es später erneut.',
-      );
-
-      _debugErrorType(
-        'deleteAccount unknown error',
-        e,
-      );
-
-      return false;
+      return result;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
 
@@ -810,20 +808,19 @@ class AuthController extends ChangeNotifier {
   Future<bool> requestPasswordReset(
     String email,
   ) async {
-    _setLoading(true);
-    _setError(null);
+    final action = _beginAction();
+
+    _setActionError(action, null);
 
     try {
-      await _repo.requestPasswordReset(
-        email,
-      );
+      await _repo.requestPasswordReset(email, generation: action.origin);
 
-      return true;
+      return _owns(action) && _session.isCurrent(action.origin);
     } on DioException catch (e) {
       final apiError =
           ApiError.fromDio(e);
 
-      _setError(
+      _setActionError(action,
         apiError.message.isNotEmpty
             ? apiError.message
             : 'Reset aktuell nicht verfügbar.',
@@ -836,7 +833,7 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } catch (e) {
-      _setError(
+      _setActionError(action,
         'Reset aktuell nicht verfügbar.',
       );
 
@@ -847,7 +844,12 @@ class AuthController extends ChangeNotifier {
 
       return false;
     } finally {
-      _setLoading(false);
+      _finishAction(action);
     }
   }
+}
+
+class _AuthAction {
+  _AuthAction(this.origin);
+  final int origin;
 }

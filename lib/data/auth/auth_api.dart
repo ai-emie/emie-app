@@ -1,190 +1,111 @@
-// ===============================================
-// Emie • Auth API
-// Pfad: lib/data/auth/auth_api.dart
-// ===============================================
-
 import 'package:dio/dio.dart';
 
 import '../../api/client.dart';
+import '../../state/session_store.dart';
 import 'auth_models.dart';
 
 class AuthApi {
   AuthApi({Dio? dio}) : _dio = dio ?? ApiClient().dio;
-
   final Dio _dio;
 
-  // -------------------------------------------
-  // • Login (E-Mail & Passwort)
-  //   Backend: POST /v1/auth/login
-  // -------------------------------------------
-  Future<TokenPair> login({
-    required String email,
-    required String password,
-  }) async {
-    final res = await _dio.post(
-      '/v1/auth/login',
-      data: {
-        'email': email,
-        'password': password,
-      },
-    );
-
-    return TokenPair.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<TokenPair> login(
+      {required String email,
+      required String password,
+      int? generation}) async {
+    final response = await _dio.post('/v1/auth/login',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'email': email, 'password': password});
+    return TokenPair.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Registrierung
-  //   Backend: POST /v1/auth/register
-  //   Response: VerifyResponse
-  // -------------------------------------------
-  Future<VerifyResponse> register({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    final res = await _dio.post(
-      '/v1/auth/register',
-      data: {
-        'name': name,
-        'email': email,
-        'password': password,
-      },
-    );
-
-    return VerifyResponse.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<VerifyResponse> register(
+      {required String name,
+      required String email,
+      required String password,
+      int? generation}) async {
+    final response = await _dio.post('/v1/auth/register',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'name': name, 'email': email, 'password': password});
+    return VerifyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • E-Mail verifizieren
-  //   Backend: GET /v1/auth/verify?token=...
-  // -------------------------------------------
-  Future<VerifyResponse> verifyEmail({
-    required String token,
-  }) async {
-    final res = await _dio.get(
-      '/v1/auth/verify',
-      queryParameters: {
-        'token': token,
-      },
-    );
-
-    return VerifyResponse.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<VerifyResponse> verifyEmail(
+      {required String token, int? generation}) async {
+    final response = await _dio.get('/v1/auth/verify',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        queryParameters: {'token': token});
+    return VerifyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Eigenes Profil laden
-  //   Backend: GET /v1/me
-  // -------------------------------------------
-  Future<UserProfile> me() async {
-    final res = await _dio.get(
-      '/v1/me',
-    );
-
-    return UserProfile.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<UserProfile> me({int? generation}) async {
+    final response =
+        await _dio.get('/v1/me', options: ApiClient.sessionOptions(generation));
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Account löschen
-  //   Backend: DELETE /v1/me
-  // -------------------------------------------
-  Future<void> deleteAccount() async {
-    await _dio.delete(
-      '/v1/me',
-    );
+  Future<DeletionServerResult> deleteAccount({required int generation}) async {
+    if (!SessionStore.instance.isCurrent(generation)) {
+      return DeletionServerResult.notSent;
+    }
+    try {
+      final response = await _dio.delete('/v1/me',
+          // Keep a rejected HTTP status even if its unused error body is invalid.
+          options: ApiClient.sessionOptions(generation, noRefresh: true)
+              .copyWith(receiveDataWhenStatusError: false));
+      final body = response.data;
+      return response.statusCode == 200 &&
+              body is Map<String, dynamic> &&
+              body['status'] == 'deleted'
+          ? DeletionServerResult.confirmed
+          : DeletionServerResult.unconfirmed;
+    } on DioException catch (error) {
+      if (error.error is StaleSessionException) {
+        return DeletionServerResult.notSent;
+      }
+      return error.response?.statusCode == 401
+          ? DeletionServerResult.authenticationRejected
+          : DeletionServerResult.unconfirmed;
+    } catch (_) {
+      return DeletionServerResult.unconfirmed;
+    }
   }
 
-  // -------------------------------------------
-  // • Google Login
-  //   Backend: POST /v1/auth/google
-  // -------------------------------------------
-  Future<TokenPair> loginWithGoogle({
-    required String idToken,
-  }) async {
-    final res = await _dio.post(
-      '/v1/auth/google',
-      data: {
-        'id_token': idToken,
-      },
-    );
-
-    return TokenPair.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<TokenPair> loginWithGoogle(
+      {required String idToken, int? generation}) async {
+    final response = await _dio.post('/v1/auth/google',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'id_token': idToken});
+    return TokenPair.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Apple Login
-  //   Backend: POST /v1/auth/apple
-  // -------------------------------------------
-  Future<TokenPair> loginWithApple({
-    required String identityToken,
-  }) async {
-    final res = await _dio.post(
-      '/v1/auth/apple',
-      data: {
-        'id_token': identityToken,
-      },
-    );
-
-    return TokenPair.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<TokenPair> loginWithApple(
+      {required String identityToken, int? generation}) async {
+    final response = await _dio.post('/v1/auth/apple',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'id_token': identityToken});
+    return TokenPair.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Token Refresh
-  //   Backend: POST /v1/auth/refresh
-  // -------------------------------------------
-  Future<TokenPair> refresh({
-    required String refreshToken,
-  }) async {
-    final res = await _dio.post(
-      '/v1/auth/refresh',
-      data: {
-        'refresh_token': refreshToken,
-      },
-    );
-
-    return TokenPair.fromJson(
-      res.data as Map<String, dynamic>,
-    );
+  Future<TokenPair> refresh(
+      {required String refreshToken, int? generation}) async {
+    final response = await _dio.post('/v1/auth/refresh',
+        // Error bodies are unused; decoding them must not hide an HTTP 401.
+        options: ApiClient.sessionOptions(generation, noRefresh: true)
+            .copyWith(receiveDataWhenStatusError: false),
+        data: {'refresh_token': refreshToken});
+    return TokenPair.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // -------------------------------------------
-  // • Logout
-  //   Backend: POST /v1/auth/logout
-  // -------------------------------------------
-  Future<void> logout({
-    required String refreshToken,
-  }) async {
-    await _dio.post(
-      '/v1/auth/logout',
-      data: {
-        'refresh_token': refreshToken,
-      },
-    );
+  Future<void> logout({required String refreshToken, int? generation}) async {
+    await _dio.post('/v1/auth/logout',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'refresh_token': refreshToken});
   }
 
-  // -------------------------------------------
-  // • Forgot Password
-  //   Backend: POST /v1/auth/password/reset/start
-  // -------------------------------------------
-  Future<void> requestPasswordReset({
-    required String email,
-  }) async {
-    await _dio.post(
-      '/v1/auth/password/reset/start',
-      data: {
-        'email': email,
-      },
-    );
+  Future<void> requestPasswordReset(
+      {required String email, int? generation}) async {
+    await _dio.post('/v1/auth/password/reset/start',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'email': email});
   }
 }

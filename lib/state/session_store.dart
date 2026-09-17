@@ -31,16 +31,48 @@ class SessionStore extends ChangeNotifier {
   // APP BOOTSTRAP
   // ===========================================
 
+  int _generation = 0;
+  int? _endedOrigin;
+  int get generation => _generation;
+  bool isCurrent(int generation) => _generation == generation;
+  bool canFinish(int origin) => isCurrent(origin) || _endedOrigin == origin;
+
+  /// Reserve a new identity before starting login/restore, including same-user
+  /// and concurrent login attempts. Token rotation never calls this method.
+  int beginSession({bool bootstrap = false}) {
+    final reserved = ++_generation;
+    _endedOrigin = null;
+    _accessToken = null;
+    _refreshToken = null;
+    _user = null;
+    _isBootstrapping = bootstrap;
+    notifyListeners();
+    return reserved;
+  }
+
+  SessionEndContext endSession(int origin) {
+    if (isCurrent(origin)) {
+      // A listener may synchronously begin B while clear() notifies. Preserve
+      // the post-state belonging to this end operation, not B's newer ID.
+      final completion = _generation + 1;
+      clear();
+      return SessionEndContext(origin, completion, LocalSessionEnd.ended);
+    }
+    if (_endedOrigin == origin) {
+      return SessionEndContext(
+          origin, _generation, LocalSessionEnd.alreadyEnded);
+    }
+    return SessionEndContext(origin, null, LocalSessionEnd.differentSession);
+  }
+
   bool _isBootstrapping = true;
 
   bool get isBootstrapping => _isBootstrapping;
 
-  void beginBootstrap() {
-    _isBootstrapping = true;
-    notifyListeners();
-  }
+  int beginBootstrap() => beginSession(bootstrap: true);
 
-  void finishBootstrap() {
+  void finishBootstrap({int? generation}) {
+    if (generation != null && !isCurrent(generation)) return;
     _isBootstrapping = false;
     notifyListeners();
   }
@@ -77,9 +109,7 @@ class SessionStore extends ChangeNotifier {
   UserProfile? get user => _user;
 
   bool get isAuthenticated {
-    return _accessToken != null &&
-        _accessToken!.isNotEmpty &&
-        _user != null;
+    return _accessToken != null && _accessToken!.isNotEmpty && _user != null;
   }
 
   bool get hasRefreshToken {
@@ -89,7 +119,9 @@ class SessionStore extends ChangeNotifier {
   void updateTokens(
     String access, {
     String? refresh,
+    int? generation,
   }) {
+    if (generation != null && !isCurrent(generation)) return;
     _accessToken = access;
 
     if (refresh != null && refresh.isNotEmpty) {
@@ -99,7 +131,8 @@ class SessionStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateUser(UserProfile user) {
+  void updateUser(UserProfile user, {int? generation}) {
+    if (generation != null && !isCurrent(generation)) return;
     _user = user;
 
     notifyListeners();
@@ -109,18 +142,14 @@ class SessionStore extends ChangeNotifier {
   // RESTORE SESSION / APP START
   // ===========================================
 
-  Future<void> restoreSession() async {
-    final access = await SecureStorageService.getAccessToken();
-    final refresh = await SecureStorageService.getRefreshToken();
-
-    if (access != null && access.isNotEmpty) {
-      _accessToken = access;
-    }
-
-    if (refresh != null && refresh.isNotEmpty) {
-      _refreshToken = refresh;
-    }
-
+  Future<void> restoreSession({int? generation}) async {
+    final origin = generation ?? _generation;
+    final tokens = await SecureStorageService.readTokens(
+      isCurrent: () => isCurrent(origin),
+    );
+    if (tokens == null || !isCurrent(origin)) return;
+    _accessToken = tokens.access;
+    _refreshToken = tokens.refresh;
     notifyListeners();
   }
 
@@ -129,6 +158,9 @@ class SessionStore extends ChangeNotifier {
   // ===========================================
 
   void clear() {
+    _endedOrigin = _generation;
+    _generation++;
+    _isBootstrapping = false;
     _accessToken = null;
     _refreshToken = null;
     _user = null;
