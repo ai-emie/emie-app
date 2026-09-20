@@ -4,11 +4,88 @@ import '../../core/storage/secure_storage.dart';
 import '../../state/session_store.dart';
 import 'auth_api.dart';
 import 'auth_models.dart';
+import 'apple_confirmation_models.dart';
 
 class AuthRepository {
   AuthRepository({AuthApi? api}) : _api = api ?? AuthApi();
   final AuthApi _api;
   final SessionStore _session = SessionStore.instance;
+
+  bool _confirmationCurrent(AppleConfirmationOperation operation, bool Function() owns) =>
+      operation.valid && _session.isAuthenticated &&
+      _session.isCurrent(operation.originGeneration) && owns();
+
+  AppleConfirmationResult _confirmationFailure(AppleConfirmationOperation operation,
+      AppleConfirmationReply reply) {
+    final outcome = reply.stale ? AppleConfirmationOutcome.stale : switch (reply.statusCode) {
+      401 => AppleConfirmationOutcome.authenticationRejected,
+      404 => AppleConfirmationOutcome.notAvailable,
+      409 => AppleConfirmationOutcome.conflict,
+      400 => AppleConfirmationOutcome.invalidProof,
+      _ => AppleConfirmationOutcome.unconfirmed,
+    };
+    return AppleConfirmationResult(outcome, operationId: operation.serverId);
+  }
+
+  Future<AppleConfirmationResult?> beginAppleConfirmation(AppleConfirmationOperation operation,
+      {required bool Function() owns}) async {
+    bool current() => _confirmationCurrent(operation, owns);
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    final reply = await _api.appleConfirmation(operation, 'POST', '', isCurrent: current);
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    final body = reply.body;
+    if (reply.statusCode != 201 || body == null) return _confirmationFailure(operation, reply);
+    final id = body['id'], nonce = body['nonce'], state = body['state'], expiry = body['expires_at'];
+    if (id is! String || !RegExp(r'^[0-9a-f]{32}$').hasMatch(id) || id.length != 32 ||
+        nonce is! String || state is! String || nonce == state ||
+        !RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(nonce) || nonce.length != 43 ||
+        !RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(state) || state.length != 43 ||
+        expiry is! String || DateTime.tryParse(expiry) == null) {
+      return const AppleConfirmationResult(AppleConfirmationOutcome.unconfirmed);
+    }
+    operation.serverId = id;
+    operation.nonce = nonce;
+    operation.state = state;
+    return null;
+  }
+
+  Future<AppleConfirmationResult> finishAppleConfirmation(AppleConfirmationOperation operation,
+      {required String identityToken, required String state, required bool Function() owns}) =>
+      _mutateConfirmation(operation, 'complete', owns,
+          data: {'id_token': identityToken, 'state': state});
+
+  Future<AppleConfirmationResult> cancelAppleConfirmation(AppleConfirmationOperation operation,
+      {required bool Function() owns}) => _mutateConfirmation(operation, 'cancel', owns);
+
+  Future<AppleConfirmationResult> _mutateConfirmation(AppleConfirmationOperation operation,
+      String action, bool Function() owns, {Map<String, String>? data}) async {
+    bool current() => _confirmationCurrent(operation, owns);
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    final id = operation.serverId;
+    if (id == null) return const AppleConfirmationResult(AppleConfirmationOutcome.unconfirmed);
+    final reply = await _api.appleConfirmation(operation, 'POST', '/$id/$action',
+        data: data, isCurrent: current);
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    final wanted = action == 'complete' ? 'confirmed' : 'cancelled';
+    if (reply.statusCode == 200 && reply.body?['id'] == id && reply.body?['status'] == wanted) {
+      return AppleConfirmationResult(action == 'complete'
+          ? AppleConfirmationOutcome.confirmed : AppleConfirmationOutcome.cancelled, operationId: id);
+    }
+    final failure = _confirmationFailure(operation, reply);
+    if (failure.outcome != AppleConfirmationOutcome.unconfirmed || operation.statusAttempted) return failure;
+    operation.statusAttempted = true;
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    final status = await _api.appleConfirmation(operation, 'GET', '/$id', isCurrent: current);
+    if (!current()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+    if (status.statusCode != 200 || status.body?['id'] != id) return _confirmationFailure(operation, status);
+    final outcome = switch (status.body?['status']) {
+      'confirmed' => AppleConfirmationOutcome.confirmed,
+      'cancelled' => AppleConfirmationOutcome.cancelled,
+      'expired' => AppleConfirmationOutcome.conflict,
+      _ => AppleConfirmationOutcome.unconfirmed, // pending is only a snapshot.
+    };
+    return AppleConfirmationResult(outcome, operationId: id);
+  }
 
   void _requireCurrent(int generation) {
     if (!_session.isCurrent(generation)) {

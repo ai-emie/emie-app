@@ -15,6 +15,8 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../api/api_error.dart';
 import '../../../data/auth/auth_repository.dart';
 import '../../../data/auth/auth_models.dart';
+import '../../../data/auth/apple_confirmation_models.dart';
+import '../../../data/auth/apple_confirmation_native.dart';
 import '../../../state/session_store.dart';
 
 class AuthController extends ChangeNotifier {
@@ -33,6 +35,43 @@ class AuthController extends ChangeNotifier {
   int? _noticeGeneration;
   Object? _dismissedNotice;
   AccountDeletionOperation? _dialogOperation;
+  AppleConfirmationOperation? _appleConfirmation;
+
+  /// Explicit, currently unconnected entry point. Does not begin a login.
+  Future<AppleConfirmationResult> confirmAppleAccount() async {
+    _appleConfirmation?.invalidate();
+    final operation = AppleConfirmationOperation(_session.generation);
+    _appleConfirmation = operation;
+    bool owns() => !_disposed && identical(_appleConfirmation, operation) &&
+        operation.valid && _session.isCurrent(operation.originGeneration) && _session.isAuthenticated;
+    final native = AppleConfirmationNative();
+    try {
+      if (!owns()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+      if (!native.isSupported) return const AppleConfirmationResult(AppleConfirmationOutcome.notAvailable);
+      final beginning = await _repo.beginAppleConfirmation(operation, owns: owns);
+      if (!owns()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+      if (beginning != null) return beginning;
+      final proof = await native.request(nonce: operation.nonce!, state: operation.state!, isCurrent: owns);
+      if (!owns()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+      final AppleConfirmationResult result;
+      if (proof.status == AppleConfirmationNativeStatus.cancelled) {
+        result = await _repo.cancelAppleConfirmation(operation, owns: owns);
+      } else if (proof.status != AppleConfirmationNativeStatus.proof) {
+        return const AppleConfirmationResult(AppleConfirmationOutcome.notAvailable);
+      } else if (proof.identityToken?.isNotEmpty != true || proof.state == null || proof.state != operation.state) {
+        return const AppleConfirmationResult(AppleConfirmationOutcome.invalidProof);
+      } else {
+        result = await _repo.finishAppleConfirmation(operation,
+            identityToken: proof.identityToken!, state: proof.state!, owns: owns);
+      }
+      if (!owns()) return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
+      return result;
+    } catch (_) {
+      return AppleConfirmationResult(owns() ? AppleConfirmationOutcome.unconfirmed : AppleConfirmationOutcome.stale);
+    } finally {
+      operation.forgetChallenge();
+    }
+  }
 
   bool get isLoading => _isLoading && _action != null && _owns(_action!);
   String? get errorMessage => _errorMessage;
@@ -72,6 +111,10 @@ class AuthController extends ChangeNotifier {
 
   void _sessionChanged() {
     if (_disposed) return;
+    if (_appleConfirmation != null && !_session.isCurrent(_appleConfirmation!.originGeneration)) {
+      _appleConfirmation!.invalidate();
+      _appleConfirmation = null;
+    }
     if (_action != null && !_session.canFinish(_action!.origin)) {
       _action = null;
       _errorMessage = null;
@@ -137,6 +180,7 @@ class AuthController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _appleConfirmation?.invalidate();
     _session.removeListener(_sessionChanged);
     super.dispose();
   }
