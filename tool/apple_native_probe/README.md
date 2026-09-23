@@ -73,3 +73,30 @@ bewusst bedienen; dieser kann eine echte Apple-Autorisierung auslösen.
 Ein Diagnosebuild kann `ios/Flutter/Generated.xcconfig` lokal auf dieses Target
 setzen. Für spätere reguläre Builds ausdrücklich `--target lib/main.dart`
 angeben; keine manuelle Rückänderung generierter Dateien.
+
+## Berichteter manueller Geräteversuch
+
+Quelle: Laut Patriks Bericht hat er den Apple-Dialog selbst bedient und einen
+Screenshot der Diagnoseoberfläche im Chat geteilt. Die daraus berichteten
+visuell abgelesenen Zustände sind: Ablauf `completed`, Antwort `received`,
+Token vorhanden `true`, Code vorhanden `true`, State `matching`, Tokenstruktur
+`readable`, c_hash `stringPresent`. Codex hat diesen Lauf nicht kryptografisch
+verifiziert; eine verifizierte Messzeit wird nicht behauptet.
+
+Kontext laut vorherigen Geräte-/Buildberichten: iPhone 14 Pro, iOS 26.6.1,
+sign_in_with_apple 6.1.4, separater signierter Debug-Diagnoseeinstieg mit
+Bundle-ID ai.emiso.emie. Keine authentifizierte Emie-Sitzung oder Server-Challenge;
+direkter nativer Pluginaufruf mit leeren Scopes und der oben dokumentierten
+lokalen State-/Nonce-Konvention.
+
+In genau diesem Versuch wurde einmal ein c_hash-String in der unverifiziert
+gelesenen Tokenstruktur beobachtet. Nicht nachgewiesen sind kryptografische
+Tokengültigkeit, Bindung von c_hash an den konkreten Code, vollständige
+serverseitige Identitäts-/Nonce-/Codeprüfung, ein erfolgreicher Confirmation-API-
+Ablauf mit diesem echten Nachweis, Codeaustausch, Tokenaufbewahrung oder Widerruf.
+Der Befund belegt weder dasselbe Verhalten auf macOS, anderen Geräten oder in
+anderen Abläufen noch eine vollständige Apple-Login- oder Beta-Abnahme.
+
+Die lokale Entitlements-Zuordnung gilt für alle Runner-Debug-/iphoneos-Builds,
+nicht ausschließlich für das Dart-Probe-Target. Release, Profile und Simulator
+wurden dadurch nicht geändert.
