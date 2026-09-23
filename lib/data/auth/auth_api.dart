@@ -15,39 +15,110 @@ class AuthApi {
   Future<AppleConfirmationReply> appleConfirmation(
       AppleConfirmationOperation operation, String method, String suffix,
       {Map<String, String>? data, required bool Function() isCurrent}) async {
-    bool current() => operation.valid &&
-        SessionStore.instance.isCurrent(operation.originGeneration) && isCurrent();
+    final complete = method == 'POST' && suffix.endsWith('/complete');
+    final id = operation.serverId,
+        state = operation.state,
+        nonce = operation.nonce;
+    final expiry = operation.expiresAt;
+    final accountId = SessionStore.instance.user?.id;
+    bool current() =>
+        operation.valid &&
+        SessionStore.instance.isAuthenticated &&
+        SessionStore.instance.user?.id == accountId &&
+        SessionStore.instance.isCurrent(operation.originGeneration) &&
+        isCurrent() &&
+        (!complete ||
+            (operation.serverId == id &&
+                operation.state == state &&
+                operation.nonce == nonce &&
+                operation.expiresAt == expiry &&
+                operation.isUnexpired));
     if (!current()) return const AppleConfirmationReply(null, stale: true);
-    // Request-local transport keeps the shared client/transformer unchanged.
-    // In particular, no shared response interceptor mutates SessionStore.
+    if (complete) {
+      if (!AppleConfirmationInput.valid(data) ||
+          data?['state'] != state ||
+          id == null ||
+          !RegExp(r'^[0-9a-f]{32}$').hasMatch(id) ||
+          id.length != 32 ||
+          suffix != '/$id/complete') {
+        return const AppleConfirmationReply(422);
+      }
+      if (!operation.claimComplete()) return const AppleConfirmationReply(409);
+    }
+    // No shared interceptors, auth-refresh replay or automatic redirects.
     final local = Dio(_dio.options.copyWith());
     local.transformer = _dio.transformer;
-    local.httpClientAdapter = _AppleConfirmationTransport(_dio.httpClientAdapter, current);
+    local.httpClientAdapter = _AppleConfirmationTransport(
+        _dio.httpClientAdapter, current,
+        onSend: complete ? () => operation.completeSent = true : null);
     final access = SessionStore.instance.accessToken;
-    final options = ApiClient.sessionOptions(operation.originGeneration, noRefresh: true)
-        .copyWith(method: method, responseType: ResponseType.plain,
-            receiveDataWhenStatusError: false,
-            headers: {'Authorization': 'Bearer $access',
-              'Content-Type': 'application/json', 'Accept': 'application/json'});
+    final options =
+        ApiClient.sessionOptions(operation.originGeneration, noRefresh: true)
+            .copyWith(
+                method: method,
+                responseType: ResponseType.bytes,
+                validateStatus: (_) => true,
+                followRedirects: false,
+                receiveDataWhenStatusError: false,
+                headers: {
+          'Authorization': 'Bearer $access',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        });
+    Response<List<int>>? response;
     try {
       if (!current()) return const AppleConfirmationReply(null, stale: true);
-      final response = await local.request<String>('/v1/auth/apple/confirmations$suffix',
-          data: data, options: options, cancelToken: operation.transportCancellation);
+      response = await local.request<List<int>>(
+          '/v1/auth/apple/confirmations$suffix',
+          data: data,
+          options: options,
+          cancelToken: operation.transportCancellation);
       if (!current()) return const AppleConfirmationReply(null, stale: true);
       Map<String, dynamic>? body;
       try {
-        final value = jsonDecode(response.data ?? '');
-        if (value is Map<String, dynamic>) body = value;
+        final value = jsonDecode(utf8.decode(response.data ?? []));
+        if (value is Map<String, dynamic>) {
+          if ((response.statusCode ?? 0) >= 400) {
+            // Retain only known machine codes, never server messages/details.
+            const codes = {
+              'apple_code_binding_not_demonstrable',
+              'apple_code_binding_invalid',
+              'apple_code_binding_unavailable',
+              'INVALID_PROOF',
+              'UNAUTHORIZED',
+              'NOT_FOUND',
+              'CONFLICT',
+              'VALIDATION_ERROR',
+              'UNCONFIRMED'
+            };
+            if (value['ok'] == false && codes.contains(value['code'])) {
+              body = {'ok': false, 'code': value['code']};
+            }
+          } else if (complete) {
+            if (value.length == 2 &&
+                value['id'] == id &&
+                value['status'] == 'confirmed') {
+              body = {'id': id, 'status': 'confirmed'};
+            }
+          } else {
+            body = value;
+          }
+        }
       } catch (_) {
-        // Invalid success data leaves the result unknown; no POST replay.
+        // Preserve the HTTP status even when the body cannot be decoded.
       }
       return AppleConfirmationReply(response.statusCode, body: body);
     } on DioException catch (error) {
+      error.requestOptions.data = null;
+      error.response?.data = null;
       if (!current()) return const AppleConfirmationReply(null, stale: true);
       return AppleConfirmationReply(error.response?.statusCode);
     } catch (_) {
       return AppleConfirmationReply(null, stale: !current());
     } finally {
+      data?.clear();
+      response?.requestOptions.data = null;
+      response?.data = null;
       // The adapter deliberately does not close the shared underlying transport.
       local.close();
     }
@@ -156,18 +227,27 @@ class AuthApi {
 }
 
 class _AppleConfirmationTransport implements HttpClientAdapter {
-  _AppleConfirmationTransport(this.delegate, this.isCurrent);
+  _AppleConfirmationTransport(this.delegate, this.isCurrent, {this.onSend});
+  final void Function()? onSend;
+  bool _sent = false;
   final HttpClientAdapter delegate;
   final bool Function() isCurrent;
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? stream,
       Future<void>? cancelFuture) {
-    if (!isCurrent()) {
-      throw DioException(requestOptions: options, type: DioExceptionType.cancel,
+    if (!isCurrent() || _sent) {
+      throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.cancel,
           error: const StaleSessionException());
     }
-    return delegate.fetch(options, stream, cancelFuture);
+    _sent = true;
+    onSend?.call();
+    return delegate.fetch(options, stream, cancelFuture).whenComplete(() {
+      options.data = null;
+    });
   }
+
   @override
   void close({bool force = false}) {}
 }
