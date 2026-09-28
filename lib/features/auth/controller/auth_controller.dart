@@ -950,6 +950,9 @@ class AuthController extends ChangeNotifier {
     final action = _beginAction();
     try {
       var result = await _repo.deleteAccount(request);
+      if (result.server == DeletionServerResult.appleRequired && _owns(action)) {
+        result = await _deleteAppleAccount(request);
+      }
       _showDeletionResult(action, result);
       if (result.completionGeneration != null) {
         result = result
@@ -959,6 +962,68 @@ class AuthController extends ChangeNotifier {
       return result;
     } finally {
       _finishAction(action);
+    }
+  }
+
+  Future<AccountDeletionResult> _deleteAppleAccount(AccountDeletionOperation request) async {
+    AccountDeletionResult stopped(DeletionServerResult server) =>
+        AccountDeletionResult(operation: request, server: server,
+            sessionEnd: _session.isCurrent(request.originGeneration)
+                ? LocalSessionEnd.unchanged : LocalSessionEnd.differentSession);
+    if (_confirmationInFlight || !_confirmationNative.isSupported) {
+      return stopped(DeletionServerResult.appleUnavailable);
+    }
+    _confirmationInFlight = true;
+    final operation = AppleConfirmationOperation(request.originGeneration, now: _confirmationNow);
+    _appleConfirmation = operation;
+    final account = _session.user?.id;
+    final access = _session.accessToken;
+    bool owns() => !_disposed && operation.valid &&
+        identical(_appleConfirmation, operation) &&
+        _session.isAuthenticated && _session.isCurrent(request.originGeneration) &&
+        _session.user?.id == account && _session.accessToken == access;
+    AppleCodeBindingPair? pair;
+    try {
+      if (!owns()) return stopped(DeletionServerResult.notSent);
+      final beginning = await _repo.beginAppleConfirmation(operation,
+          owns: owns, forDeletion: true);
+      if (!owns()) return stopped(DeletionServerResult.notSent);
+      if (beginning != null) {
+        return _repo.finishAccountDeletion(request,
+            beginning.outcome == AppleConfirmationOutcome.authenticationRejected
+                ? DeletionServerResult.authenticationRejected : DeletionServerResult.appleUnavailable);
+      }
+      final id = operation.serverId, nonce = operation.nonce, state = operation.state;
+      final expiry = operation.expiresAt;
+      bool current() => owns() && operation.serverId == id && operation.nonce == nonce &&
+          operation.state == state && operation.expiresAt == expiry;
+      if (!operation.isUnexpired) return stopped(DeletionServerResult.appleProofRejected);
+      final native = await _confirmationNative.request(nonce: nonce!, state: state!,
+          operation: AppleCodeBindingOperation(originGeneration: request.originGeneration));
+      pair = native.pair;
+      if (!current()) return stopped(DeletionServerResult.notSent);
+      if (!operation.isUnexpired) return stopped(DeletionServerResult.appleProofRejected);
+      if (native.status == AppleCodeBindingNativeStatus.cancelled) {
+        await _repo.cancelAppleDeletion(operation, owns: current);
+        return stopped(DeletionServerResult.notSent);
+      }
+      if (native.status != AppleCodeBindingNativeStatus.received || pair == null) {
+        return stopped(DeletionServerResult.appleProofRejected);
+      }
+      final completion = _repo.completeAppleDeletion(request, operation,
+          identityToken: pair.identityToken ?? '', state: pair.state ?? '',
+          authorizationCode: pair.authorizationCode ?? '', owns: current);
+      pair.release();
+      pair = null;
+      return await completion;
+    } catch (_) {
+      return stopped(operation.completeSent || owns()
+          ? DeletionServerResult.unconfirmed : DeletionServerResult.notSent);
+    } finally {
+      pair?.release();
+      operation.invalidate();
+      if (identical(_appleConfirmation, operation)) _appleConfirmation = null;
+      _confirmationInFlight = false;
     }
   }
 

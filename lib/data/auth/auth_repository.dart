@@ -49,13 +49,13 @@ class AuthRepository {
 
   Future<AppleConfirmationResult?> beginAppleConfirmation(
       AppleConfirmationOperation operation,
-      {required bool Function() owns}) async {
+      {required bool Function() owns, bool forDeletion = false}) async {
     bool current() => _confirmationCurrent(operation, owns);
     if (!current()) {
       return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
     }
     final reply =
-        await _api.appleConfirmation(operation, 'POST', '', isCurrent: current);
+        await _api.appleConfirmation(operation, 'POST', '', isCurrent: current, forDeletion: forDeletion);
     if (!current()) {
       return const AppleConfirmationResult(AppleConfirmationOutcome.stale);
     }
@@ -329,7 +329,46 @@ class AuthRepository {
           google: LocalCleanupStep.differentSession);
     }
     final server = await _api.deleteAccount(generation: origin);
-    if (server != DeletionServerResult.confirmed &&
+    return finishAccountDeletion(operation, server);
+  }
+
+  Future<AccountDeletionResult> completeAppleDeletion(
+      AccountDeletionOperation request, AppleConfirmationOperation operation,
+      {required String identityToken, required String state,
+      required String authorizationCode, required bool Function() owns}) async {
+    final account = _session.user?.id;
+    bool sameSession() => _session.isAuthenticated &&
+        _session.isCurrent(request.originGeneration) && _session.user?.id == account;
+    final reply = await _api.appleConfirmation(operation, 'POST',
+        '/${operation.serverId}/complete', forDeletion: true, isCurrent: owns,
+        data: {'id_token': identityToken, 'state': state, 'authorization_code': authorizationCode});
+    // A stale proof deadline is not a session switch or proof of non-dispatch.
+    // Keep the shared API's strict deadline checks; discard late success and
+    // show uncertainty to A while still suppressing every A result for B.
+    final uncertain = operation.completeSent
+        ? DeletionServerResult.unconfirmed : DeletionServerResult.notSent;
+    if (!sameSession()) {
+      return AccountDeletionResult(operation: request, server: uncertain,
+          sessionEnd: LocalSessionEnd.differentSession);
+    }
+    if (!owns() || reply.stale) {
+      return finishAccountDeletion(request, uncertain);
+    }
+    final server = AuthApi.parseDeletionReply(reply.statusCode, reply.body);
+    return finishAccountDeletion(request, server);
+  }
+
+  Future<void> cancelAppleDeletion(AppleConfirmationOperation operation,
+      {required bool Function() owns}) async {
+    if (operation.serverId == null || !owns()) return;
+    await _api.appleConfirmation(operation, 'POST', '/${operation.serverId}/cancel',
+        forDeletion: true, isCurrent: owns);
+  }
+
+  Future<AccountDeletionResult> finishAccountDeletion(
+      AccountDeletionOperation operation, DeletionServerResult server) async {
+    final origin = operation.originGeneration;
+    if (!server.confirmsDeletion &&
         server != DeletionServerResult.authenticationRejected) {
       return AccountDeletionResult(
           operation: operation,

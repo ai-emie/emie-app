@@ -125,9 +125,26 @@ class AuthResult {
 // These process-local IDs contain no credentials and are never sent to the API.
 enum DeletionServerResult {
   confirmed,
+  appleRequired,
+  applePending,
+  appleAcknowledged,
+  appleNotConfirmed,
+  appleManualRequired,
+  appleUnavailable,
+  appleProofRejected,
   authenticationRejected,
   unconfirmed,
   notSent
+}
+
+extension DeletionConfirmation on DeletionServerResult {
+  bool get confirmsDeletion => const {
+    DeletionServerResult.confirmed,
+    DeletionServerResult.applePending,
+    DeletionServerResult.appleAcknowledged,
+    DeletionServerResult.appleNotConfirmed,
+    DeletionServerResult.appleManualRequired,
+  }.contains(this);
 }
 
 enum LocalSessionEnd { ended, alreadyEnded, unchanged, differentSession }
@@ -192,11 +209,24 @@ class AccountDeletionResult {
     final de = language == 'de';
     final lines = <String>[];
     switch (server) {
+      case DeletionServerResult.applePending:
+      case DeletionServerResult.appleAcknowledged:
+      case DeletionServerResult.appleNotConfirmed:
+      case DeletionServerResult.appleManualRequired:
       case DeletionServerResult.confirmed:
         lines.add(de
             ? 'Die Löschung deines Kontos wurde bestätigt.\nDu bist in dieser App abgemeldet.'
             : 'Your account deletion was confirmed.\nYou are signed out of this app.');
         break;
+      case DeletionServerResult.appleRequired:
+      case DeletionServerResult.appleUnavailable:
+        return de
+            ? 'Für dieses Konto ist eine frische Apple-Bestätigung erforderlich. Der Löschweg ist derzeit nicht verfügbar. Es liegt keine Löschbestätigung vor.'
+            : 'This account requires fresh Apple confirmation. The deletion flow is currently unavailable. Deletion has not been confirmed.';
+      case DeletionServerResult.appleProofRejected:
+        return de
+            ? 'Die Apple-Bestätigung wurde nicht angenommen. Es liegt keine Löschbestätigung vor.'
+            : 'Apple confirmation was not accepted. Deletion has not been confirmed.';
       case DeletionServerResult.authenticationRejected:
         lines.add(de
             ? 'Bitte melde dich erneut an.\nFür diesen Löschversuch liegt keine Löschbestätigung vor.'
@@ -209,6 +239,17 @@ class AccountDeletionResult {
         break;
       case DeletionServerResult.notSent:
         return '';
+    }
+    if (server == DeletionServerResult.applePending) {
+      lines.add(de ? 'Der Apple-Widerruf wurde beauftragt und ist noch nicht bestätigt.'
+          : 'Apple revocation was queued and has not yet been acknowledged.');
+    } else if (server == DeletionServerResult.appleAcknowledged) {
+      lines.add(de ? 'Apple hat den Widerrufsauftrag bestätigt.' : 'Apple acknowledged the revocation request.');
+    } else if (server == DeletionServerResult.appleNotConfirmed) {
+      lines.add(de ? 'Der Apple-Widerruf ist nicht bestätigt.' : 'Apple revocation is not confirmed.');
+    } else if (server == DeletionServerResult.appleManualRequired) {
+      lines.add(de ? 'Du musst die Apple-Verknüpfung selbst in deinen Apple-Einstellungen aufheben.'
+          : 'You must remove the Apple connection yourself in your Apple settings.');
     }
     if (tokens.access == LocalCleanupStep.unconfirmed ||
         tokens.refresh == LocalCleanupStep.unconfirmed) {

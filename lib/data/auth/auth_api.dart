@@ -14,7 +14,8 @@ class AuthApi {
 
   Future<AppleConfirmationReply> appleConfirmation(
       AppleConfirmationOperation operation, String method, String suffix,
-      {Map<String, String>? data, required bool Function() isCurrent}) async {
+      {Map<String, String>? data, required bool Function() isCurrent,
+      bool forDeletion = false}) async {
     final complete = method == 'POST' && suffix.endsWith('/complete');
     final id = operation.serverId,
         state = operation.state,
@@ -69,7 +70,7 @@ class AuthApi {
     try {
       if (!current()) return const AppleConfirmationReply(null, stale: true);
       response = await local.request<List<int>>(
-          '/v1/auth/apple/confirmations$suffix',
+          forDeletion ? '/v1/me/apple-deletion$suffix' : '/v1/auth/apple/confirmations$suffix',
           data: data,
           options: options,
           cancelToken: operation.transportCancellation);
@@ -89,10 +90,17 @@ class AuthApi {
               'NOT_FOUND',
               'CONFLICT',
               'VALIDATION_ERROR',
-              'UNCONFIRMED'
+              'UNCONFIRMED',
+              'apple_deletion_unavailable',
+              'apple_deletion_unconfirmed',
+              'apple_deletion_outcome_unknown'
             };
             if (value['ok'] == false && codes.contains(value['code'])) {
               body = {'ok': false, 'code': value['code']};
+            }
+          } else if (complete && forDeletion) {
+            if (parseDeletionReply(response.statusCode, value).confirmsDeletion) {
+              body = {'status': 'deleted', 'apple_revocation': value['apple_revocation']};
             }
           } else if (complete) {
             if (value.length == 2 &&
@@ -122,6 +130,26 @@ class AuthApi {
       // The adapter deliberately does not close the shared underlying transport.
       local.close();
     }
+  }
+
+  /// Shared strict wire parser; backend-generated fixtures exercise this method.
+  static DeletionServerResult parseDeletionReply(int? status, dynamic body) {
+    if (status == 401) return DeletionServerResult.authenticationRejected;
+    if (status == 409 && body is Map && body['ok'] == false &&
+        body['code'] == 'apple_deletion_required') {
+      return DeletionServerResult.appleRequired;
+    }
+    if (status != 200 || body is! Map || body['status'] != 'deleted') {
+      return DeletionServerResult.unconfirmed;
+    }
+    if (!body.containsKey('apple_revocation')) return DeletionServerResult.confirmed;
+    return switch (body['apple_revocation']) {
+      'pending' => DeletionServerResult.applePending,
+      'acknowledged' => DeletionServerResult.appleAcknowledged,
+      'not_confirmed' => DeletionServerResult.appleNotConfirmed,
+      'manual_required' => DeletionServerResult.appleManualRequired,
+      _ => DeletionServerResult.unconfirmed,
+    };
   }
 
   Future<TokenPair> login(
@@ -167,13 +195,10 @@ class AuthApi {
       final response = await _dio.delete('/v1/me',
           // Keep a rejected HTTP status even if its unused error body is invalid.
           options: ApiClient.sessionOptions(generation, noRefresh: true)
-              .copyWith(receiveDataWhenStatusError: false));
-      final body = response.data;
-      return response.statusCode == 200 &&
-              body is Map<String, dynamic> &&
-              body['status'] == 'deleted'
-          ? DeletionServerResult.confirmed
-          : DeletionServerResult.unconfirmed;
+              .copyWith(receiveDataWhenStatusError: false,
+                  validateStatus: (code) => code != null &&
+                      ((code >= 200 && code < 300) || code == 409)));
+      return parseDeletionReply(response.statusCode, response.data);
     } on DioException catch (error) {
       if (error.error is StaleSessionException) {
         return DeletionServerResult.notSent;
