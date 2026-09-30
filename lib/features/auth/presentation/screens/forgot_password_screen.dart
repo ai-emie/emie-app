@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../controller/auth_controller.dart';
+import '../../../../state/session_store.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -42,9 +43,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     final email = _email.text.trim();
 
+    final origin = SessionStore.instance.generation;
     final ok = await auth.requestPasswordReset(email);
 
-    if (!mounted) return;
+    if (!mounted || !SessionStore.instance.isCurrent(origin)) return;
 
     if (ok) {
       setState(() {
@@ -164,7 +166,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         validator: (value) {
                           final text = value?.trim() ?? '';
                           if (text.isEmpty) return 'Bitte E-Mail eingeben.';
-                          if (!text.contains('@') || !text.contains('.')) {
+                          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) {
                             return 'Bitte eine gültige E-Mail-Adresse eingeben.';
                           }
                           return null;

@@ -175,9 +175,9 @@ class AuthApi {
 
   Future<VerifyResponse> verifyEmail(
       {required String token, int? generation}) async {
-    final response = await _dio.get('/v1/auth/verify',
+    final response = await _dio.post('/v1/auth/verify',
         options: ApiClient.sessionOptions(generation, noRefresh: true),
-        queryParameters: {'token': token});
+        data: {'token': token});
     return VerifyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -245,9 +245,29 @@ class AuthApi {
 
   Future<void> requestPasswordReset(
       {required String email, int? generation}) async {
-    await _dio.post('/v1/auth/password/reset/start',
+    _requireRecoveryAck(await _dio.post('/v1/auth/password/reset/start',
         options: ApiClient.sessionOptions(generation, noRefresh: true),
-        data: {'email': email});
+        data: {'email': email}));
+  }
+  Future<void> finishPasswordReset(
+      {required String token, required String newPassword, int? generation}) async {
+    _requireRecoveryAck(await _dio.post('/v1/auth/password/reset/finish',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'token': token, 'new_password': newPassword}));
+  }
+
+  Future<void> requestVerificationResend(
+      {required String email, int? generation}) async {
+    _requireRecoveryAck(await _dio.post('/v1/auth/verify/resend',
+        options: ApiClient.sessionOptions(generation, noRefresh: true),
+        data: {'email': email}));
+  }
+
+  void _requireRecoveryAck(Response<dynamic> response) {
+    if (response.statusCode != 200 ||
+        response.data is! Map || response.data['status'] != 'ok') {
+      throw StateError('Recovery acknowledgement unavailable');
+    }
   }
 }
 

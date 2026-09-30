@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'forgot_password_screen.dart';
+import 'verification_recovery_screen.dart';
 
 import '../../controller/auth_controller.dart';
 
@@ -67,7 +68,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
 
     if (_isLoginMode) {
       // Keine Navigation hier.
@@ -90,9 +91,12 @@ class _AuthScreenState extends State<AuthScreen> {
     if (success) {
       setState(() {
         _uiHint =
-            'Registrierung erfolgreich. Bitte bestätige deine E-Mail und logge dich danach ein.';
+            'Falls eine Registrierung möglich ist, erhältst du eine Bestätigungs-Mail. '
+            'Bestätige deine E-Mail und melde dich danach an.';
         _isLoginMode = true;
       });
+      Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => VerificationRecoveryScreen(initialEmail: email)));
     }
   }
 
@@ -358,6 +362,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     onPressed: auth.isLoading
                         ? null
                         : () {
+                            auth.clearError();
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
@@ -376,6 +381,17 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
               ],
+
+              TextButton(
+                key: const ValueKey('verification-recovery-link'),
+                onPressed: auth.isLoading ? null : () {
+                  auth.clearError();
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => VerificationRecoveryScreen(
+                        initialEmail: _emailController.text.trim())));
+                },
+                child: const Text('Keine Mail erhalten / Link abgelaufen'),
+              ),
 
               // Confirm password (Register only)
               if (!_isLoginMode) ...[

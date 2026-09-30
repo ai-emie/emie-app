@@ -15,6 +15,8 @@ import 'state/session_store.dart';
 
 import 'features/auth/controller/auth_controller.dart';
 import 'features/auth/presentation/screens/auth_screen.dart';
+import 'features/auth/presentation/screens/reset_password_screen.dart';
+import 'features/auth/navigation/recovery_link_controller.dart';
 
 import 'features/chat/presentation/widgets/authenticated_chat_scope.dart';
 
@@ -26,12 +28,33 @@ import 'core/localization/app_localizations.dart';
 // APP
 // ===============================================
 
-class EmieApp extends StatelessWidget {
+class EmieApp extends StatefulWidget {
   const EmieApp({super.key});
 
   @override
+  State<EmieApp> createState() => _EmieAppState();
+}
+
+class _EmieAppState extends State<EmieApp> {
+  late final RecoveryLinkController _recovery;
+
+  @override
+  void initState() {
+    super.initState();
+    _recovery = RecoveryLinkController();
+  }
+
+  @override
+  void dispose() {
+    _recovery.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MultiProvider(
+    return AnimatedBuilder(
+      animation: _recovery,
+      builder: (context, _) => MultiProvider(
       providers: [
         // =====================================
         // SESSION STORE
@@ -87,10 +110,12 @@ class EmieApp extends StatelessWidget {
 
           final app = MaterialApp(
             key: ValueKey<String>(
-              'emie-root-$rootNavigationState',
+              'emie-root-$rootNavigationState-recovery-${_recovery.revision}',
             ),
 
             title: 'Emie',
+            // Recovery ingress owns native route strings; Navigator names never contain proofs.
+            initialRoute: '/',
             builder: (context, child) {
               final auth = context.watch<AuthController>();
               final notice = auth.deletionNotice;
@@ -204,9 +229,11 @@ class EmieApp extends StatelessWidget {
 
             home: session.isBootstrapping
                 ? const _BootstrapScreen()
-                : session.isAuthenticated
-                    ? const MainShell()
-                    : const AuthScreen(),
+                : _recovery.hasPending
+                    ? ResetPasswordScreen(token: _recovery.token, onDone: _recovery.dismiss)
+                    : session.isAuthenticated
+                        ? const MainShell()
+                        : const AuthScreen(),
           );
 
           if (session.isBootstrapping || !session.isAuthenticated) return app;
@@ -217,7 +244,7 @@ class EmieApp extends StatelessWidget {
             key: ValueKey(session.generation), session: session, child: app);
         },
       ),
-    );
+    ));
   }
 }
 

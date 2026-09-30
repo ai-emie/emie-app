@@ -396,7 +396,22 @@ class AuthRepository {
             : LocalCleanupStep.notRequired);
   }
 
+  Future<void> _recovery(Future<void> Function(int) request, int? generation) async {
+    final origin = generation ?? _session.generation;
+    _requireCurrent(origin);
+    await request(origin);
+    _requireCurrent(origin);
+  }
+
   Future<void> requestPasswordReset(String email, {int? generation}) =>
-      _api.requestPasswordReset(
-          email: email, generation: generation ?? _session.generation);
+      _recovery((origin) => _api.requestPasswordReset(
+          email: email.trim().toLowerCase(), generation: origin), generation);
+
+  Future<void> finishPasswordReset(String token, String password, {int? generation}) =>
+      _recovery((origin) => _api.finishPasswordReset(
+          token: token, newPassword: password, generation: origin), generation);
+
+  Future<void> requestVerificationResend(String email, {int? generation}) =>
+      _recovery((origin) => _api.requestVerificationResend(
+          email: email.trim().toLowerCase(), generation: origin), generation);
 }

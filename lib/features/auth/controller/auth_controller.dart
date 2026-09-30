@@ -1030,44 +1030,43 @@ class AuthController extends ChangeNotifier {
   // -------------------------------------------
   //  Forgot Password
   // -------------------------------------------
-  Future<bool> requestPasswordReset(
-    String email,
-  ) async {
+  Future<bool> requestPasswordReset(String email) =>
+      _recoverAccount((origin) => _repo.requestPasswordReset(email, generation: origin));
+
+  Future<bool> finishPasswordReset(String token, String password) =>
+      _recoverAccount((origin) => _repo.finishPasswordReset(
+          token, password, generation: origin), proof: true);
+
+  Future<bool> requestVerificationResend(String email) =>
+      _recoverAccount((origin) => _repo.requestVerificationResend(
+          email, generation: origin));
+
+  Future<bool> _recoverAccount(Future<void> Function(int) request,
+      {bool proof = false}) async {
     final action = _beginAction();
-
-    _setActionError(action, null);
-
     try {
-      await _repo.requestPasswordReset(email, generation: action.origin);
-
+      await request(action.origin);
       return _owns(action) && _session.isCurrent(action.origin);
-    } on DioException catch (e) {
-      final apiError = ApiError.fromDio(e);
-
-      _setActionError(
-        action,
-        apiError.message.isNotEmpty
-            ? apiError.message
-            : 'Reset aktuell nicht verfügbar.',
-      );
-
-      _debugDio(
-        'requestPasswordReset DioException',
-        e,
-      );
-
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      final message = switch (status) {
+        400 || 401 when proof =>
+          'Der Reset-Link ist ungültig, abgelaufen oder bereits verwendet. '
+          'Fordere bitte einen neuen Link an.',
+        422 => proof
+            ? 'Bitte prüfe deine Eingaben. Das Passwort braucht mindestens 6 Zeichen.'
+            : 'Bitte eine gültige E-Mail-Adresse eingeben.',
+        429 => 'Zu viele Anfragen. Bitte warte eine Minute und versuche es erneut.',
+        null => 'Die Anfrage konnte nicht bestätigt werden. Prüfe deine Verbindung '
+            'und versuche es später erneut.',
+        _ => 'Der Vorgang ist derzeit nicht verfügbar. Bitte versuche es später erneut.',
+      };
+      // Never forward server bodies, request data or token-bearing exceptions.
+      _setActionError(action, message);
       return false;
-    } catch (e) {
-      _setActionError(
-        action,
-        'Reset aktuell nicht verfügbar.',
-      );
-
-      _debugErrorType(
-        'requestPasswordReset unknown error',
-        e,
-      );
-
+    } catch (_) {
+      _setActionError(action,
+          'Der Vorgang konnte nicht bestätigt werden. Bitte versuche es später erneut.');
       return false;
     } finally {
       _finishAction(action);
