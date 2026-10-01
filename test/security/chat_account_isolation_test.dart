@@ -29,10 +29,11 @@ final _session = SessionStore.instance;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     FlutterSecureStorage.setMockInitialValues({});
     _session.clear();
     _session.finishBootstrap();
+    await _session.loadPreferences();
   });
 
   for (final nextUser in [_userA, _userB]) {
@@ -316,7 +317,11 @@ void main() {
             ]
           });
         case '/v1/memory/list':
-          return _json({'items': []});
+        case '/v1/projects':
+          return _json({'items': [], 'total_items': 0, 'offset': 0, 'limit': 20});
+        case '/v1/home/summary':
+          return _json({'user_stats': {'total_memories': 0, 'memories_today': 0, 'total_projects': 0},
+            'recent_project': null, 'recent_memory': null, 'generated_at': '2026-09-30T00:00:00Z'});
         case '/v1/get-daily-welcome':
           return _json({'message': '$account daily welcome'});
         case '/v1/chat/sessions/A-session':

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/localization/b2_text.dart';
 import '../../../../data/chat/chat_models.dart';
 import '../../../../data/chat/chat_session_models.dart';
 import '../../../../shared/widgets/emie_app_bar.dart';
@@ -68,7 +69,7 @@ class _ChatViewState extends State<ChatScreen> {
 
     final text = _textController.text.trim();
 
-    if (text.isEmpty || chat.isSending) {
+    if (text.isEmpty || chat.isSending || chat.isLoadingHistory || chat.isDeleting) {
       return;
     }
 
@@ -87,12 +88,12 @@ class _ChatViewState extends State<ChatScreen> {
 
     final err = chat.error;
 
-    if (err != null) {
+    if (err != null && !chat.lastSendConfirmed) {
       setState(
         () => _uiHint = _t(
           context,
-          de: 'Verbindung nicht stabil. Bitte erneut senden.',
-          en: 'Connection unstable. Please try again.',
+          de: 'Ausgang nicht bestätigt. Bitte erst die Historie prüfen, bevor du erneut sendest.',
+          en: 'Outcome unconfirmed. Check history before sending again.',
         ),
       );
     }
@@ -224,6 +225,15 @@ class _ChatViewState extends State<ChatScreen> {
                             colors: c,
                           ),
                   ),
+                  if (chat.isLoadingHistory || chat.isDeleting) const LinearProgressIndicator(),
+                  if (chat.lastSendConfirmed) Padding(padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Text(_t(context, de: 'Nachrichten gespeichert.', en: 'Messages saved.'))),
+                  if (chat.error != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Text(chat.error == 'history_load_failed'
+                      ? _t(context, de: 'Historie nicht aktuell. Bitte neu laden.', en: 'History is not up to date. Please reload.')
+                      : chat.error == 'chat_open_failed'
+                        ? _t(context, de: 'Gespräch konnte nicht geöffnet werden. Bitte erneut versuchen.', en: 'Could not open conversation. Please try again.')
+                        : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
                   if (_uiHint != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -397,6 +407,7 @@ class _ChatViewState extends State<ChatScreen> {
     _ChatColors c,
   ) {
     String searchQuery = '';
+    context.read<ChatController>().loadSessions();
 
     showModalBottomSheet(
       context: context,
@@ -646,6 +657,12 @@ class _ChatViewState extends State<ChatScreen> {
       );
     }
 
+    if (chat.error != null && !chat.isLoadingHistory) {
+      return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(_t(context, de: 'Historie nicht aktuell. Bitte erneut laden.', en: 'History is not up to date. Please reload.')),
+        TextButton(onPressed: chat.loadSessions, child: Text(_t(context, de: 'Erneut laden', en: 'Reload'))),
+      ]);
+    }
     if (sessions.isEmpty) {
       final hasSearch = query.isNotEmpty;
 
@@ -702,13 +719,12 @@ class _ChatViewState extends State<ChatScreen> {
             );
           },
           onDelete: () async {
-            await chat.deleteChat(
-              session.id,
-            );
-
-            if (context.mounted) {
-              closeSheet();
-            }
+            if (chat.isDeleting || !await b2Confirm(context, 'Gespräch endgültig löschen?', 'Permanently delete conversation?')) return;
+            if (!context.mounted) return;
+            final confirmed = await chat.deleteChat(session.id);
+            if (!context.mounted) return;
+            b2Notice(context, confirmed ? 'Gespräch gelöscht.' : 'Löschen nicht bestätigt. Bitte Historie neu laden.',
+              confirmed ? 'Conversation deleted.' : 'Deletion unconfirmed. Please reload history.');
           },
         );
       },

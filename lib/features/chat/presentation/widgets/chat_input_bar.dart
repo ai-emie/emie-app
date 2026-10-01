@@ -86,35 +86,8 @@ class ChatInputBar extends StatelessWidget {
               // ATTACH BUTTON
               // =================================
 
-              GestureDetector(
-                onTap: () =>
-                    onSnack(attachHintText),
-                behavior:
-                    HitTestBehavior.opaque,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color:
-                        surface.withOpacity(0.96),
-                    border: Border.all(
-                      color: gold.withOpacity(
-                        isDark ? 0.12 : 0.18,
-                      ),
-                      width: 0.7,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.add_rounded,
-                    color:
-                        textSecondary.withOpacity(
-                      0.92,
-                    ),
-                    size: 22,
-                  ),
-                ),
-              ),
+              IconButton(onPressed: null, tooltip: attachHintText,
+                icon: const Icon(Icons.attach_file_rounded)),
 
               const SizedBox(width: 10),
 

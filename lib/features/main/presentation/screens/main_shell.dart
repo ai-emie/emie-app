@@ -27,12 +27,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    ChatScreen(),
-    MemoryScreen(),
-    ProjectScreen(),
-    ProfileScreen(),
+  List<Widget> get _screens => [
+    HomeScreen(isActive: _selectedIndex == 0),
+    const ChatScreen(),
+    MemoryScreen(isActive: _selectedIndex == 2),
+    ProjectScreen(isActive: _selectedIndex == 3),
+    const ProfileScreen(),
   ];
 
   void _onTap(int index) {

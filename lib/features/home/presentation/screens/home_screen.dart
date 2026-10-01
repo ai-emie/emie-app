@@ -11,13 +11,15 @@ import '../../../../shared/widgets/emie_app_bar.dart';
 import '../../../../state/session_store.dart';
 import '../../../chat/controller/chat_controller.dart';
 import '../../../plus/presentation/screens/emie_plus_screen.dart';
+import 'home_overview.dart';
 
 // ==============================================
 // HOME SCREEN
 // ==============================================
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.isActive = true});
+  final bool isActive;
 
   @override
   State<HomeScreen> createState() =>
@@ -83,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen>
       _dailyWelcomeFuture =
           context
               .read<ChatController>()
-              .getDailyWelcome();
+              .getDailyWelcome(reportErrors: true);
     }
   }
 
@@ -247,6 +249,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 _dailyWelcomeFuture,
                             colors: c,
                             text: t,
+                            onRetry: () => setState(() => _dailyWelcomeFuture = context.read<ChatController>().getDailyWelcome(reportErrors: true)),
                           ),
                         ),
 
@@ -254,33 +257,7 @@ class _HomeScreenState extends State<HomeScreen>
                           height: 15,
                         ),
 
-                        // ==================================
-                        // TOP PROJECT
-                        // ==================================
-                        //
-                        // Aktuell ist im HomeScreen noch
-                        // keine echte Project-Datenquelle
-                        // angebunden.
-                        //
-                        // Deshalb bewusst Empty State statt
-                        // erfundener Projekt-/Fortschrittsdaten.
-
-                        _GradientBorderCard(
-                          colors: c,
-                          icon:
-                              Icons.business_center_outlined,
-                          title:
-                              t.topProjectTitle,
-                          child: _EmptyState(
-                            icon:
-                                Icons.folder_open_outlined,
-                            title:
-                                t.noProjectTitle,
-                            subtitle:
-                                t.noProjectSubtitle,
-                            colors: c,
-                          ),
-                        ),
+                        HomeOverview(isActive: widget.isActive),
                       ],
                     ),
                   ),
@@ -302,11 +279,13 @@ class _DailyWelcomeContent
     extends StatelessWidget {
   const _DailyWelcomeContent({
     required this.future,
+    required this.onRetry,
     required this.colors,
     required this.text,
   });
 
   final Future<String>? future;
+  final VoidCallback onRetry;
   final _HomeColors colors;
   final _HomeText text;
 
@@ -333,6 +312,9 @@ class _DailyWelcomeContent
           );
         }
 
+        if (snapshot.hasError) {
+          return Column(children: [Text(text.isDe ? 'Tagesbegrüßung konnte nicht geladen werden.' : 'Could not load daily welcome.', style: TextStyle(color: colors.text)), TextButton(onPressed: onRetry, child: Text(text.isDe ? 'Erneut versuchen' : 'Retry'))]);
+        }
         final value =
             snapshot.data?.trim() ?? '';
 
@@ -596,7 +578,7 @@ class _HomeText {
           : 'YOUR OVERVIEW';
 
   String get dailyWelcomeTitle =>
-      '1. DAILY WELCOME';
+      isDe ? 'TAGESBEGRÜSSUNG' : 'DAILY WELCOME';
 
   String get dailyWelcomeEmptyTitle =>
       isDe

@@ -629,8 +629,12 @@ class Kl5Harness {
     if (request.path == '/v1/chat/sessions') {
       return json({'items': []});
     }
-    if (request.path == '/v1/memory/list') {
-      return json({'items': []});
+    if (request.path == '/v1/memory/list' || request.path == '/v1/projects') {
+      return json({'items': [], 'total_items': 0, 'offset': 0, 'limit': 20});
+    }
+    if (request.path == '/v1/home/summary') {
+      return json({'user_stats': {'total_memories': 0, 'memories_today': 0, 'total_projects': 0},
+        'recent_project': null, 'recent_memory': null, 'generated_at': '2026-09-30T00:00:00Z'});
     }
     if (request.path == '/v1/get-daily-welcome') {
       return json({'message': 'Welcome ${owner(request)}'});
@@ -667,12 +671,13 @@ class Kl5Harness {
 class FakeTokenStorage extends FlutterSecureStorage {
   static const access = 'emie_access_token';
   static const refresh = 'emie_refresh_token';
+  String label(String key) => key == access ? 'access' : key == refresh ? 'refresh' : 'preferences';
   final values = <String, String>{};
   final events = <String>[];
   final failures = <String>{};
   Future<void> Function(String operation, String key, String? value)? before;
   Future<void> _start(String operation, String key, String? value) async {
-    final short = key == access ? 'access' : 'refresh';
+    final short = label(key);
     final event = '$operation:$short';
     events.add('$event:start');
     await before?.call(operation, key, value);
@@ -699,7 +704,7 @@ class FakeTokenStorage extends FlutterSecureStorage {
       values[key] = value;
     }
     events.add(
-        'write:${key == access ? 'access' : 'refresh'}:end:${Kl5Harness.ownerOf(value)}');
+        'write:${label(key)}:end:${Kl5Harness.ownerOf(value)}');
   }
 
   @override
@@ -726,7 +731,7 @@ class FakeTokenStorage extends FlutterSecureStorage {
       WindowsOptions? wOptions}) async {
     await _start('delete', key, null);
     values.remove(key);
-    events.add('delete:${key == access ? 'access' : 'refresh'}:end');
+    events.add('delete:${label(key)}:end');
   }
 
   @override

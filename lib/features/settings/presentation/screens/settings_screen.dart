@@ -198,6 +198,12 @@ class SettingsScreen extends StatelessWidget {
               // ERSCHEINUNGSBILD
               // ==========================================
 
+              Text(t.isDe ? 'Sprache und Design gelten auf diesem Gerät für alle Konten.' : 'Language and theme apply to all accounts on this device.'),
+              if (session.preferencesSaving) const LinearProgressIndicator(),
+              if (session.preferencesFailed) ...[
+                Text(t.isDe ? 'Einstellungen nicht dauerhaft gespeichert. Bitte erneut versuchen.' : 'Preferences were not saved persistently. Please retry.'),
+                TextButton(onPressed: session.persistPreferences, child: Text(t.isDe ? 'Erneut speichern' : 'Retry saving')),
+              ],
               _SectionTitle(
                 t.appearance,
                 colors: c,
@@ -217,7 +223,7 @@ class SettingsScreen extends StatelessWidget {
                     colors: c,
                   ),
                   _ThemeTile(
-                    title: 'Light Gold',
+                    title: t.isDe ? 'Hell' : 'Light',
                     subtitle: t.lightSub,
                     value: EmieThemeMode.light,
                     selected: session.themeMode == EmieThemeMode.light,
@@ -227,7 +233,7 @@ class SettingsScreen extends StatelessWidget {
                     colors: c,
                   ),
                   _ThemeTile(
-                    title: 'Black Gold',
+                    title: t.isDe ? 'Dunkel' : 'Dark',
                     subtitle: t.darkSub,
                     value: EmieThemeMode.dark,
                     selected: session.themeMode == EmieThemeMode.dark,
@@ -287,7 +293,7 @@ class SettingsScreen extends StatelessWidget {
                   _InfoTile(
                     icon: Icons.auto_awesome_rounded,
                     title: 'Emie Plus',
-                    subtitle: t.plusSub,
+                    subtitle: t.isDe ? 'In dieser Beta nicht verfügbar.' : 'Not available in this beta.',
                     colors: c,
                   ),
 

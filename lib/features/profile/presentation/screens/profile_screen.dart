@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/emie_app_bar.dart';
 import '../../../../state/session_store.dart';
+import '../../../../core/localization/b2_text.dart';
+import 'profile_editor.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
 
 // ==============================================
@@ -143,6 +145,7 @@ class ProfileScreen extends StatelessWidget {
                           bottom: 10,
                         ),
                         children: [
+                          FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileEditor())), child: Text(b2(context, 'Profil bearbeiten', 'Edit profile'))),
                           _AccountCard(
                             colors: c,
                             title: t.account,

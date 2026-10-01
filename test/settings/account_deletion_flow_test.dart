@@ -20,8 +20,9 @@ import '../auth/account_deletion_session_test.dart'
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Kl5Harness h;
-  setUp(() {
+  setUp(() async {
     h = Kl5Harness();
+    await h.session.loadPreferences();
   });
   tearDown(() {
     h.dispose();
@@ -182,6 +183,9 @@ void main() {
       final auth = await mount(tester);
       final oldMemory =
           tester.state(find.byType(MemoryScreen, skipOffstage: false));
+      // Enter before delaying the explicit refresh: tab entry now reloads too.
+      await tester.tap(find.byIcon(Icons.psychology_alt_outlined));
+      await tester.pumpAndSettle();
       final entered = Completer<void>(), release = Completer<void>();
       h.onMain = (request) async {
         if (request.path == '/v1/memory/list') {
@@ -190,12 +194,14 @@ void main() {
             entered.complete();
             await release.future;
             return Kl5Harness.json({
+              'total_items': 1, 'offset': 0, 'limit': 20, 'page': 1,
               'items': [
                 {'id': 'A-item', 'content': 'A delayed memory'}
               ]
             }, status: status);
           }
           return Kl5Harness.json({
+            'total_items': 1, 'offset': 0, 'limit': 20, 'page': 1,
             'items': [
               {'id': 'B-item', 'content': 'B current memory'}
             ]
@@ -203,9 +209,7 @@ void main() {
         }
         return h.defaultResponse(request);
       };
-      await tester.tap(find.byIcon(Icons.psychology_alt_outlined));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.refresh_rounded));
+      await tester.tap(find.byTooltip('Aktualisieren'));
       await pumpUntil(tester, entered);
       final deletion = auth.deleteAccount();
       await tester.pumpAndSettle();
@@ -425,7 +429,7 @@ void main() {
       expect(h.session.isAuthenticated, isFalse);
       expect(h.requests.where((r) => r.startsWith('DELETE')), isEmpty);
       expect(h.storage.events.where((e) => e.startsWith('read:')).toList(),
-          ['read:access:start', 'read:refresh:start']);
+          ['read:preferences:start', 'read:access:start', 'read:refresh:start']);
     });
   }
 

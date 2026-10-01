@@ -13,8 +13,8 @@ class HomeApi {
 
   final Dio _dio;
 
-  Future<HomeSummaryModel> fetchSummary() async {
-    final res = await _dio.get('/v1/home/summary');
+  Future<HomeSummaryModel> fetchSummary({int? generation}) async {
+    final res = await _dio.get('/v1/home/summary', options: ApiClient.sessionOptions(generation));
 
     return HomeSummaryModel.fromJson(
       res.data as Map<String, dynamic>,

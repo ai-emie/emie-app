@@ -36,13 +36,14 @@ class ChatApi {
     final data = res.data;
 
     final list = (data is Map<String, dynamic>)
-        ? (data['items'] ?? data['sessions'] ?? [])
+        ? (data['items'] ?? data['sessions'])
         : data;
 
-    final items = (list as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(ChatSession.fromJson)
-        .toList();
+    if (list is! List || list.any((row) => row is! Map<String, dynamic>)) {
+      throw const FormatException('Invalid chat history response');
+    }
+    final items =
+        list.cast<Map<String, dynamic>>().map(ChatSession.fromJson).toList();
 
     return items;
   }
@@ -72,28 +73,25 @@ class ChatApi {
       '/v1/chat/sessions/$sessionId',
     );
 
-    final data =
-        res.data as Map<String, dynamic>? ?? {};
+    final data = res.data;
+    if (data is! Map<String, dynamic> || data['messages'] is! List) {
+      throw const FormatException('Invalid conversation response');
+    }
+    final rawMessages = data['messages'] as List;
+    if (rawMessages.any((row) => row is! Map<String, dynamic>)) {
+      throw const FormatException('Invalid conversation messages');
+    }
 
-    final rawMessages =
-        data['messages'] as List<dynamic>? ?? [];
+    final items = rawMessages.cast<Map<String, dynamic>>().map((message) {
+      final mapped = <String, dynamic>{
+        'id': (message['id'] ?? '').toString(),
+        'role': (message['role'] ?? 'assistant').toString(),
+        'text': (message['content'] ?? '').toString(),
+        'created_at': (message['created_at'] ?? '').toString(),
+      };
 
-    final items = rawMessages
-        .whereType<Map<String, dynamic>>()
-        .map((message) {
-          final mapped = <String, dynamic>{
-            'id': (message['id'] ?? '').toString(),
-            'role':
-                (message['role'] ?? 'assistant').toString(),
-            'text':
-                (message['content'] ?? '').toString(),
-            'created_at':
-                (message['created_at'] ?? '').toString(),
-          };
-
-          return ChatMessage.fromJson(mapped);
-        })
-        .toList();
+      return ChatMessage.fromJson(mapped);
+    }).toList();
 
     return items;
   }
@@ -104,6 +102,7 @@ class ChatApi {
   ) async {
     await _dio.delete(
       '/v1/chat/sessions/$sessionId',
+      options: ApiClient.sessionOptions(null, noRefresh: true),
     );
   }
 
@@ -127,11 +126,9 @@ class ChatApi {
         '/v1/get-daily-welcome',
       );
 
-      final data =
-          res.data as Map<String, dynamic>? ?? {};
+      final data = res.data as Map<String, dynamic>? ?? {};
 
-      final message =
-          (data['message'] ?? '').toString().trim();
+      final message = (data['message'] ?? '').toString().trim();
 
       if (message.isNotEmpty) {
         return message;
@@ -139,14 +136,7 @@ class ChatApi {
 
       return '';
     } catch (_) {
-      // Kein lokales Error-Dumping.
-      //
-      // Der zentrale ApiClient protokolliert HTTP-Fehler
-      // im Debug-Build bereits metadata-only.
-      //
-      // Kein Fake-Fallback:
-      // Home zeigt stattdessen seinen Empty State.
-      return '';
+      rethrow;
     }
   }
 
@@ -165,13 +155,10 @@ class ChatApi {
     // Leere Nachrichten niemals ans Backend senden.
     if (trimmed.isEmpty) {
       final mapped = <String, dynamic>{
-        'id':
-            DateTime.now().millisecondsSinceEpoch.toString(),
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'role': 'assistant',
-        'text':
-            'Schreib mir bitte eine Nachricht, dann antworte ich dir.',
-        'created_at':
-            DateTime.now().toIso8601String(),
+        'text': 'Schreib mir bitte eine Nachricht, dann antworte ich dir.',
+        'created_at': DateTime.now().toIso8601String(),
       };
 
       return ChatMessage.fromJson(mapped);
@@ -188,28 +175,20 @@ class ChatApi {
       },
     );
 
-    final data =
-        res.data as Map<String, dynamic>? ?? {};
+    final data = res.data as Map<String, dynamic>? ?? {};
 
-    final replyText =
-        (data['reply'] ?? '').toString().trim();
+    final replyText = (data['reply'] ?? '').toString().trim();
 
-    // Niemals eine leere Assistant-Nachricht darstellen.
-    //
-    // Das ist ein technischer UX-Fallback und keine
-    // erfundene personenbezogene Information.
-    final safeReply = replyText.isNotEmpty
-        ? replyText
-        : 'Ich bin da. Gerade kam keine saubere Antwort zurück. '
-            'Schreib mir bitte nochmal kurz, was du brauchst.';
+    if (data['reply'] is! String || replyText.isEmpty) {
+      throw const FormatException('Chat response not confirmed');
+    }
+    final safeReply = replyText;
 
     final mapped = <String, dynamic>{
-      'id':
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'role': 'assistant',
       'text': safeReply,
-      'created_at':
-          DateTime.now().toIso8601String(),
+      'created_at': DateTime.now().toIso8601String(),
     };
 
     return ChatMessage.fromJson(mapped);

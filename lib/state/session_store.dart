@@ -3,6 +3,7 @@
 // Pfad: lib/state/session_store.dart
 // ===============================================
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../core/storage/secure_storage.dart';
@@ -24,6 +25,8 @@ enum EmieTone {
 
 class SessionStore extends ChangeNotifier {
   SessionStore._internal();
+  @visibleForTesting
+  SessionStore.forTesting();
 
   static final SessionStore instance = SessionStore._internal();
 
@@ -165,9 +168,7 @@ class SessionStore extends ChangeNotifier {
     _refreshToken = null;
     _user = null;
 
-    _themeMode = EmieThemeMode.dark;
     _tone = EmieTone.friendly;
-    _language = 'de';
     _isOnline = true;
 
     notifyListeners();
@@ -182,6 +183,41 @@ class SessionStore extends ChangeNotifier {
   EmieTone _tone = EmieTone.friendly;
 
   String _language = 'de';
+
+  bool preferencesFailed = false;
+  bool preferencesSaving = false;
+  int _preferenceRevision = 0;
+  Future<void> loadPreferences() async {
+    final revision = _preferenceRevision;
+    try {
+      final raw = await SecureStorageService.readPreferences();
+      if (revision != _preferenceRevision) return;
+      if (raw != null) {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        _themeMode = EmieThemeMode.values.firstWhere((mode) => mode.name == data['theme']);
+        if (data['language'] != 'de' && data['language'] != 'en') throw const FormatException();
+        _language = data['language'] as String;
+      } else {
+        _themeMode = EmieThemeMode.dark;
+        _language = 'de';
+      }
+      preferencesFailed = false;
+    } catch (_) { if (revision == _preferenceRevision) preferencesFailed = true; }
+    notifyListeners();
+  }
+
+  Future<void> persistPreferences() async {
+    final revision = ++_preferenceRevision;
+    final value = jsonEncode({'theme': _themeMode.name, 'language': _language});
+    preferencesSaving = true;
+    preferencesFailed = false;
+    notifyListeners();
+    try { await SecureStorageService.writePreferences(value); }
+    catch (_) { if (revision == _preferenceRevision) preferencesFailed = true; }
+    finally {
+      if (revision == _preferenceRevision) { preferencesSaving = false; notifyListeners(); }
+    }
+  }
 
   EmieThemeMode get themeMode => _themeMode;
 
@@ -216,12 +252,11 @@ class SessionStore extends ChangeNotifier {
   // SETTERS
   // ===========================================
 
-  void setThemeMode(EmieThemeMode mode) {
+  Future<void> setThemeMode(EmieThemeMode mode) async {
     if (_themeMode == mode) return;
 
     _themeMode = mode;
-
-    notifyListeners();
+    await persistPreferences();
   }
 
   void setTone(EmieTone value) {
@@ -232,14 +267,13 @@ class SessionStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setLanguage(String code) {
+  Future<void> setLanguage(String code) async {
     final normalized = (code == 'de') ? 'de' : 'en';
 
     if (_language == normalized) return;
 
     _language = normalized;
-
-    notifyListeners();
+    await persistPreferences();
   }
 
   // ===========================================

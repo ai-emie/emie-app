@@ -16,6 +16,12 @@ class SecureStorageService {
   static const String _accessTokenKey = 'emie_access_token';
   static const String _refreshTokenKey = 'emie_refresh_token';
 
+  // Device-wide presentation preferences, separate from every account/token.
+  static Future<String?> readPreferences() =>
+      _ordered(() => _storage.read(key: 'emie_device_preferences_v1'));
+  static Future<void> writePreferences(String value) =>
+      _ordered(() => _storage.write(key: 'emie_device_preferences_v1', value: value));
+
   // All access to these two keys shares this queue, including reads. A failed
   // operation releases it. A pair cannot interleave with another session's pair.
   static Future<void>? _tail;
