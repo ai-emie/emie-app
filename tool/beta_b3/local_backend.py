@@ -17,7 +17,8 @@ import subprocess
 import sys
 import time
 
-BACKEND = Path(__file__).resolve().parents[3] / 'backend'
+APP = Path(r'C:\Users\Patze\Emie\app')
+BACKEND = APP.parent / 'backend'
 DEPENDENCIES = Path(r'C:\Users\Patze\Emie\backend\.venv')
 PYTHON = DEPENDENCIES / 'Scripts/python.exe'
 SCRIPT = Path(__file__).resolve()
@@ -85,9 +86,22 @@ def target(root):
     require(root.parent == ROOT_PARENT and root.name.startswith('b3-'), 'Not an owned B3 directory')
     cfg = json.loads((root / 'target.json').read_text(encoding='utf-8'))
     require(cfg['root'] == str(root) and cfg['profile'] == 'emie-b3-local-v1', 'Target binding mismatch')
-    require(cfg['backend'] == str(BACKEND) and cfg['python'] == str(PYTHON), 'Tool binding mismatch')
+    validate_target(root, cfg)
     private = json.loads((root / 'private/secrets.json').read_text(encoding='utf-8'))
     return root, cfg, private
+
+
+def validate_target(root, cfg):
+    require(SCRIPT == APP / 'tool/beta_b3/local_backend.py', 'Use the active repository launcher; no candidate fallback')
+    require(cfg.get('backend') == str(BACKEND) and cfg.get('app') == str(APP)
+            and cfg.get('python') == str(PYTHON), 'Active repository/tool binding mismatch')
+    require((cfg.get('pg_port'), cfg.get('database'), cfg.get('role'), cfg.get('mail_port'))
+            == (55439, 'emie_b3', 'b3_app', 8025), 'Normal development data target mismatch; no B4/test target')
+    require(type(cfg.get('backend_port')) is int and cfg['backend_port'] in range(8010, 8020),
+            'Backend port must be 8010..8019; port 8000 is not a local launcher target')
+    require(cfg.get('probe_directory') == str(root/'work/local-probes')
+            and cfg.get('probe_log') == str(root/'logs/local-probe.jsonl'), 'Local diagnostic path mismatch')
+    require(not cfg.get('allow_response_loss', False), 'Normal start never enables response-loss control')
 
 
 def packages():
@@ -112,6 +126,7 @@ def pg_identity(root, cfg):
 
 
 def connect(root, cfg, private, bootstrap=False):
+    validate_target(root, cfg)
     pg_identity(root, cfg)  # Before every explicit management connection.
     packages_if_needed()
     import psycopg2
@@ -175,10 +190,13 @@ def pg_start(root, cfg):
             '-l',str(root/'logs/postgresql.log'),'-w','-t','30'], stdout=log,stderr=log,
             env=system_environment(),creationflags=subprocess.CREATE_NO_WINDOW,timeout=40)
     require(result.returncode==0,'Owned pg_ctl start failed')
-    pg_identity(root, cfg)
+    own = pg_identity(root, cfg)
+    save(root/'processes/postgres.json', {'pid':own['pid'], 'creation':own['process']['CreationDate'],
+        'data_directory':str(root/'pgdata'), 'started_by_b3':True})
 
 
 def controlled_environment(root, cfg, private):
+    validate_target(root, cfg)
     from urllib.parse import quote
     env = system_environment()
     env.update(ENVIRONMENT='local', DEV_ALLOW_HEADER='false',
@@ -204,6 +222,21 @@ def controlled_environment(root, cfg, private):
             if isinstance(address, tuple) and address[0] not in ('127.0.0.1','::1'):
                 raise RuntimeError('B3 backend permits loopback connections only')
     sys.addaudithook(audit)
+
+
+def import_identity(root, main, phase):
+    require(Path(main.__file__).resolve() == BACKEND/'main.py', 'Backend imported from an unexpected source')
+    paths = {}
+    for name, module in list(sys.modules.items()):
+        if (name == 'app' or name.startswith('app.')) and getattr(module, '__file__', None):
+            path = Path(module.__file__).resolve()
+            require(path.is_relative_to(BACKEND), 'App module escaped active backend repository')
+            paths[name] = str(path)
+    save(root/f'logs/import-{phase}.json', {'main':str(Path(main.__file__).resolve()),
+        'main_sha256':hashlib.sha256(Path(main.__file__).read_bytes()).hexdigest(),
+        'cwd':os.getcwd(), 'python':sys.executable, 'app_modules':paths,
+        'dotenv_disabled':os.environ.get('PYTHON_DOTENV_DISABLED') == '1',
+        'header_auth':os.environ.get('DEV_ALLOW_HEADER'), 'apple_worker':os.environ.get('APPLE_REVOCATION_WORKER_ENABLED')})
 
 
 def migration_graph(root):
@@ -277,6 +310,7 @@ def lifespan(root,cfg,private):
     schema_identity(root,cfg,private)
     controlled_environment(root,cfg,private)
     import main
+    import_identity(root, main, 'lifespan')
     async def exercise():
         async with main.lifespan(main.app):
             save(root/'logs/lifespan.json',{'entry':'main.lifespan(main.app)','context_memory_guards':'real','mocks':False,'revision':HEAD,'success':True})
@@ -346,6 +380,7 @@ def backend_worker(root,cfg,private):
     schema_identity(root,cfg,private)
     controlled_environment(root,cfg,private)
     import uvicorn,main
+    import_identity(root, main, 'server')
     import runpy
     LocalProbeMiddleware = runpy.run_path(str(SCRIPT.with_name('local_probe.py')))['LocalProbeMiddleware']
     local_app = LocalProbeMiddleware(main.app, cfg)
@@ -362,7 +397,7 @@ def backend_worker(root,cfg,private):
 
 
 def start(root,cfg,private):
-    require(cfg['backend_port'] in (8000, *range(8010,8020)), 'Backend port outside authorized range')
+    validate_target(root, cfg)
     if not (root/'processes/backend.json').exists():
         port_free(cfg['backend_port'])  # Before starting PG or mail; never probe HTTP on occupied ports.
     pg_start(root,cfg)
@@ -388,23 +423,28 @@ def stop(root,cfg):
         require(process_info(row['pid']) is None,mode+' did not stop; no forced termination')
         require(not listeners(row['port']),mode+' listener still occupied')
         record.unlink(); stopped.append(mode)
-    if (root/'pgdata/postmaster.pid').exists():
-        pg_identity(root,cfg)
+    pg_record = root/'processes/postgres.json'
+    if pg_record.exists():
+        row=json.loads(pg_record.read_text())
+        current=pg_identity(root,cfg)
+        require(row.get('started_by_b3') and row['pid']==current['pid']
+                and row['creation']==current['process']['CreationDate']
+                and row['data_directory']==str(root/'pgdata'), 'PG start ownership mismatch; no stop')
         command([root/'tools/pgsql/bin/pg_ctl.exe','stop','-D',root/'pgdata','-m','fast','-w','-t','30'])
+        pg_record.unlink()
         stopped.append('postgres')
-    require(all(not listeners(cfg[x]) for x in ('pg_port','backend_port','mail_port')),'Listener remains')
-    save(root/'logs/shutdown.json',{'graceful_stopped':stopped,'ports_released':[cfg[x] for x in ('pg_port','backend_port','mail_port')],'data_and_tools_preserved':True})
+    released=[cfg[x] for x in ('pg_port','backend_port','mail_port') if not listeners(cfg[x])]
+    for port in released: port_free(port)
+    require(not listeners(cfg['backend_port']) and not listeners(cfg['mail_port']), 'Owned worker listener remains')
+    save(root/'logs/shutdown.json',{'graceful_stopped':stopped,'ports_released':released,'data_and_tools_preserved':True})
     print('Owned processes stopped; listeners released; data and tools retained.')
 
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('mode',choices=('setup','provision','migrate','check','lifespan','start','stop','smtp','backend')); parser.add_argument('root')
+    parser=argparse.ArgumentParser(); parser.add_argument('mode',choices=('check','lifespan','start','stop','smtp','backend')); parser.add_argument('root')
     args=parser.parse_args(); packages()
-    if args.mode=='setup': setup(args.root); return
     root,cfg,private=target(args.root)
-    if args.mode=='provision': provision(root,cfg,private)
-    elif args.mode=='migrate': migrate(root,cfg,private)
-    elif args.mode=='check': schema_identity(root,cfg,private); print('Owned process, database, role and B2 schema verified.')
+    if args.mode=='check': schema_identity(root,cfg,private); print('Owned process, database, role and B2 schema verified.')
     elif args.mode=='lifespan': lifespan(root,cfg,private)
     elif args.mode=='start': start(root,cfg,private)
     elif args.mode=='stop': stop(root,cfg)

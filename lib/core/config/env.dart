@@ -11,9 +11,9 @@ class Env {
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
   static bool get localDebug => kDebugMode && localRequested;
   static const int _localPort =
-      int.fromEnvironment('EMIE_LOCAL_PORT', defaultValue: 8000);
+      int.fromEnvironment('EMIE_LOCAL_PORT', defaultValue: 8010);
   static int get localPort {
-    if (_localPort != 8000 && (_localPort < 8010 || _localPort > 8019)) {
+    if (_localPort < 8010 || _localPort > 8019) {
       throw StateError('Unsupported local backend port');
     }
     return _localPort;

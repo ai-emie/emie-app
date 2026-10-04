@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ai.emie.app",
+      "sha256_cert_fingerprints": ["<CONFIRMED_INSTALLED_APP_SIGNING_CERTIFICATE_SHA256>"]
+    }
+  }
+]

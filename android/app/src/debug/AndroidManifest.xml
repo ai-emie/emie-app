@@ -1,20 +1,3 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <!-- The INTERNET permission is required for development. Specifically,
-         the Flutter tool needs it to communicate with the running application
-         to allow setting breakpoints, to provide hot reload, etc.
-    -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:networkSecurityConfig="@xml/local_network_security"
-        android:usesCleartextTraffic="true" tools:replace="android:usesCleartextTraffic">
-        <activity android:name="ai.emie.app.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" android:host="10.0.2.2"
-                    android:port="${localBackendPort}" android:path="/reset-password" />
-            </intent-filter>
-        </activity>
-    </application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

@@ -1,4 +1,4 @@
-"""Three usual commands: setup, start, stop. Keeps the already provisioned data."""
+"""Build/start/stop the active repositories; keep the existing private data."""
 import argparse
 from pathlib import Path
 import runpy
@@ -8,12 +8,15 @@ android=runpy.run_path(str(Path(__file__).with_name('android_local.py')))
 support=android['support']
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(); parser.add_argument('mode',choices=('setup','start','stop'))
+    parser=argparse.ArgumentParser(); parser.add_argument('mode',choices=('build','start','stop','backend','flutter'))
     args=parser.parse_args(); root,cfg,private=support['target'](ROOT); support['packages']()
-    if args.mode=='setup': android['build'](root)
+    if args.mode=='build': android['build'](root)
     elif args.mode=='start':
+        android['current_apk'](root)  # Fail before starting services for stale APKs.
         support['start'](root,cfg,private)
         android['start'](root)
+    elif args.mode=='backend': support['start'](root,cfg,private)
+    elif args.mode=='flutter': android['flutter'](root)
     else:
         try: android['stop'](root)
         finally: support['stop'](root,cfg)

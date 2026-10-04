@@ -1,0 +1,6 @@
+# Template only. Copy locally to android/key.properties; never commit that file.
+# Path is resolved from android/app. Use forward slashes on Windows.
+storeFile=
+storePassword=
+keyAlias=
+keyPassword=

@@ -39,8 +39,7 @@ void main() {
               Uri.parse('http://10.0.2.2:$other/reset-password')),
           isFalse);
     } else {
-      expect(before.contains(':${Env.localPort}'),
-          Env.localPort == 8000 && Env.current == EmieEnv.dev);
+      expect(before.contains(':${Env.localPort}'), isFalse);
     }
     expect(Env.apiBaseUrl, before);
   });
