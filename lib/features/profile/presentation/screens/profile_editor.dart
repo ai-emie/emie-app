@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/config/local_probe.dart';
 import '../../../../core/localization/b2_text.dart';
 import '../../../../data/auth/auth_models.dart';
 import '../../../../data/profile/profile_api.dart';
@@ -50,6 +51,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   }
 
   void accept(EditableProfile profile) {
+    localProbe('profile.accept', current: current, same: profile.id == session.user?.id);
     if (profile.id != session.user?.id) {
       throw const FormatException('Profile identity mismatch');
     }
@@ -79,7 +81,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
     try {
       final profile = await api.get(generation);
       if (current) setState(() => accept(profile));
-    } catch (_) {
+    } catch (error) {
+      localProbe('profile.load_error', current: current, errorClass: error.runtimeType.toString());
       if (current) setState(() => failed = true);
     } finally {
       if (current) setState(() => busy = false);
@@ -169,6 +172,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                       (goal, 1000, b2(context, 'Tagesziel', 'Daily goal'))
                     ])
                       TextFormField(
+                          key: ObjectKey(field.$1),
                           controller: field.$1,
                           enabled: !busy,
                           maxLines: field.$1 == username ? 1 : 4,

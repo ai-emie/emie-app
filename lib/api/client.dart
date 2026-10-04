@@ -3,6 +3,7 @@ import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/config/env.dart';
+import '../core/config/local_probe.dart';
 import '../core/storage/secure_storage.dart';
 import '../data/auth/auth_models.dart';
 import '../state/session_store.dart';
@@ -182,6 +183,7 @@ class ApiClient {
 class _SessionDio extends DioForNative {
   _SessionDio(super.options, {this.attachAccess = true});
   final bool attachAccess;
+  static int _probeSequence = 0;
   late HttpClientAdapter _guardedAdapter;
   @override
   HttpClientAdapter get httpClientAdapter => _guardedAdapter;
@@ -207,7 +209,29 @@ class _SessionDio extends DioForNative {
             'Bearer ${session.accessToken}';
       }
     }
-    return super.fetch<T>(requestOptions);
+    if (!Env.localDebug) return super.fetch<T>(requestOptions);
+    const routes = {'/v1/me':'me', '/v1/profile':'profile',
+      '/v1/auth/login':'login', '/v1/auth/refresh':'refresh',
+      '/v1/auth/password/reset/finish':'reset_finish',
+      '/v1/auth/password/reset/start':'reset_start'};
+    final phase = routes[requestOptions.path];
+    if (phase == null) return super.fetch<T>(requestOptions);
+    final number = ++_probeSequence;
+    final watch = Stopwatch()..start();
+    requestOptions.headers['X-Emie-Local-Probe'] = '$number';
+    bool current() => session.isCurrent(requestOptions.extra[ApiClient.sessionKey] as int);
+    localProbe('$phase.request', probe: number, current: current());
+    return super.fetch<T>(requestOptions).then<Response<T>>((response) {
+      localProbe('$phase.response', probe: number, status: response.statusCode,
+          millis: watch.elapsedMilliseconds, current: current());
+      return response;
+    }, onError: (Object error, StackTrace stack) {
+      localProbe('$phase.error', probe: number, millis: watch.elapsedMilliseconds,
+          current: current(), errorClass: error.runtimeType.toString(),
+          status: error is DioException ? error.response?.statusCode : null,
+          transport: error is DioException ? error.type.name : null);
+      Error.throwWithStackTrace(error, stack);
+    });
   }
 }
 

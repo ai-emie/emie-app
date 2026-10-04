@@ -10,6 +10,7 @@ import 'forgot_password_screen.dart';
 import 'verification_recovery_screen.dart';
 
 import '../../controller/auth_controller.dart';
+import '../../../../core/config/env.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -638,6 +639,10 @@ class _AuthScreenState extends State<AuthScreen> {
   //  SOCIAL SECTION (Apple / Google)
   // ===============================================
   Widget _buildSocialSection(AuthController auth) {
+    if (Env.localDebug) {
+      return const Text('Lokaler Testmodus: Apple- und Google-Anmeldung nicht verfügbar.',
+          textAlign: TextAlign.center, style: TextStyle(color: Colors.white70));
+    }
     return Column(
       children: [
         Row(

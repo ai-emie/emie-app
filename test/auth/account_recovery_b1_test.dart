@@ -442,6 +442,8 @@ void main() {
         links
             .acceptRoute('https://example.invalid/reset-password?token=$proof'),
         isTrue);
+    expect(links.token, isNull); // Unconfigured external origins are not trusted.
+    expect(links.acceptRoute('/reset-password?token=$proof'), isTrue);
     expect(links.token, proof);
     session.beginSession();
     expect(links.hasPending, isFalse);
@@ -452,7 +454,7 @@ void main() {
       (tester) async {
     session.beginBootstrap();
     tester.binding.platformDispatcher.defaultRouteNameTestValue =
-        'https://frontend.example.invalid/reset-password?token=$proof';
+        '/reset-password?token=$proof';
     addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
     await tester.pumpWidget(const EmieApp());

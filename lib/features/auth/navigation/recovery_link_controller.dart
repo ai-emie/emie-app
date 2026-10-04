@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../state/session_store.dart';
+import '../../../../core/config/env.dart';
 
 /// A small ingress for the existing Navigator. Native URL association is B3.
 /// Proofs remain in RAM, never in route names, preferences or secure storage.
@@ -12,6 +15,28 @@ class RecoveryLinkController extends ChangeNotifier
     _session.addListener(_sessionChanged);
     acceptRoute(initialRoute ??
         WidgetsBinding.instance.platformDispatcher.defaultRouteName);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _native.setMethodCallHandler((call) async {
+        if (!_disposed && call.method == 'resetLink' && call.arguments is String) {
+          acceptRoute(call.arguments as String);
+        }
+      });
+      _takeInitial();
+    }
+  }
+
+  static const _native = MethodChannel('ai.emie.app/recovery');
+  bool _disposed = false;
+
+  Future<void> _takeInitial() async {
+    try {
+      final route = await _native.invokeMethod<String>('takeInitial');
+      if (!_disposed && route != null) acceptRoute(route);
+    } on MissingPluginException {
+      // Widget tests and platforms without the Android bridge.
+    } on PlatformException {
+      if (!_disposed) acceptRoute('/reset-password');
+    }
   }
 
   final SessionStore _session;
@@ -35,9 +60,7 @@ class RecoveryLinkController extends ChangeNotifier
     String? token;
     try {
       final values = uri.queryParametersAll['token'];
-      if ((!uri.hasScheme || uri.scheme == 'https') &&
-          (!uri.hasAuthority ||
-              (uri.scheme == 'https' && uri.host.isNotEmpty)) &&
+      if (Env.allowsRecoveryOrigin(uri) &&
           uri.userInfo.isEmpty &&
           !uri.hasFragment &&
           uri.queryParametersAll.length == 1 &&
@@ -83,6 +106,10 @@ class RecoveryLinkController extends ChangeNotifier
 
   @override
   void dispose() {
+    _disposed = true;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _native.setMethodCallHandler(null);
+    }
     WidgetsBinding.instance.removeObserver(this);
     _session.removeListener(_sessionChanged);
     _token = null;

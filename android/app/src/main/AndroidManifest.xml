@@ -6,7 +6,7 @@
         android:name="${applicationName}"
         android:label="emie"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
 
         <activity
             android:name="ai.emie.app.MainActivity"
@@ -22,6 +22,8 @@
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
+            <!-- The RAM-only native bridge owns recovery URIs, not route names. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

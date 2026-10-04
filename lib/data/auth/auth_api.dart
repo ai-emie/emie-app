@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../api/client.dart';
+import '../../core/config/local_probe.dart';
 import '../../state/session_store.dart';
 import 'auth_models.dart';
 import 'apple_confirmation_models.dart';
@@ -264,6 +265,7 @@ class AuthApi {
   }
 
   void _requireRecoveryAck(Response<dynamic> response) {
+    localProbe('recovery.ack', status: response.statusCode, same: response.data is Map && response.data['status'] == 'ok');
     if (response.statusCode != 200 ||
         response.data is! Map || response.data['status'] != 'ok') {
       throw StateError('Recovery acknowledgement unavailable');

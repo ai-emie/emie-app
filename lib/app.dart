@@ -108,6 +108,14 @@ class _EmieAppState extends State<EmieApp> {
             rootNavigationState = 'unauthenticated';
           }
 
+          final rootPage = session.isBootstrapping
+              ? const _BootstrapScreen()
+              : _recovery.hasPending
+                  ? ResetPasswordScreen(token: _recovery.token, onDone: _recovery.dismiss)
+                  : session.isAuthenticated
+                      ? const MainShell()
+                      : const AuthScreen();
+
           final app = MaterialApp(
             key: ValueKey<String>(
               'emie-root-$rootNavigationState-recovery-${_recovery.revision}',
@@ -116,6 +124,15 @@ class _EmieAppState extends State<EmieApp> {
             title: 'Emie',
             // Recovery ingress owns native route strings; Navigator names never contain proofs.
             initialRoute: '/',
+            // Flutter can override initialRoute with a platform launch URI.
+            // Only the recovery ingress may consume that URI, never Navigator.
+            onGenerateInitialRoutes: (_) => [
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: '/'),
+                builder: (_) => rootPage,
+              ),
+            ],
+            routes: {'/': (_) => rootPage},
             builder: (context, child) {
               final auth = context.watch<AuthController>();
               final notice = auth.deletionNotice;
@@ -227,13 +244,6 @@ class _EmieAppState extends State<EmieApp> {
             // AuthScreen und MainShell navigieren
             // nicht gegenseitig aufeinander.
 
-            home: session.isBootstrapping
-                ? const _BootstrapScreen()
-                : _recovery.hasPending
-                    ? ResetPasswordScreen(token: _recovery.token, onDone: _recovery.dismiss)
-                    : session.isAuthenticated
-                        ? const MainShell()
-                        : const AuthScreen(),
           );
 
           if (session.isBootstrapping || !session.isAuthenticated) return app;

@@ -18,6 +18,7 @@ import '../../../data/auth/auth_models.dart';
 import '../../../data/auth/apple_confirmation_models.dart';
 import '../../../data/auth/apple_code_binding_native.dart';
 import '../../../state/session_store.dart';
+import '../../../core/config/env.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController(
@@ -252,6 +253,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<LocalCleanupStep> _googleSignOut(int completion) async {
+    if (Env.localDebug) return LocalCleanupStep.notRequired;
     try {
       final ran = await _orderedGoogle<bool>(
           () => _session.isCurrent(completion), () async {
