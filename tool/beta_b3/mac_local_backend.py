@@ -113,5 +113,12 @@ elif mode=='backend':
     return message
    await self.app(scope,checked_receive,tracked)
  signal.alarm(6000)
- uvicorn.run(SafeEvidence(main.app),host='127.0.0.1',port=cfg['backend_port'],access_log=False,proxy_headers=False,log_level='warning')
+ served = SafeEvidence(main.app)
+ if len(sys.argv) == 4:
+  # Only an explicit private own-target control directory enables this harness.
+  import importlib.util
+  spec = importlib.util.spec_from_file_location('ios_reset_loss', Path(__file__).with_name('ios_reset_loss.py'))
+  module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+  served = module.LocalResetEvidence(served, sys.argv[3])
+ uvicorn.run(served,host='127.0.0.1',port=cfg['backend_port'],access_log=False,proxy_headers=False,log_level='warning')
 else:raise ValueError('mode')
