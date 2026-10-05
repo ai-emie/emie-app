@@ -10,6 +10,9 @@ enum EmieEnv { dev, prod }
 class Env {
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
   static bool get localDebug => kDebugMode && localRequested;
+  /// Only the iOS Local Debug simulator uses Mac loopback. Android is unchanged.
+  static String get localHost =>
+      defaultTargetPlatform == TargetPlatform.iOS ? '127.0.0.1' : '10.0.2.2';
   static const int _localPort =
       int.fromEnvironment('EMIE_LOCAL_PORT', defaultValue: 8010);
   static int get localPort {
@@ -27,7 +30,7 @@ class Env {
     if (!uri.hasScheme && !uri.hasAuthority) return true;
     if (localDebug) {
       return uri.scheme == 'http' &&
-          uri.host == '10.0.2.2' &&
+          uri.host == localHost &&
           uri.port == localPort;
     }
     final allowed = Uri.tryParse(recoveryOrigin);
@@ -70,7 +73,7 @@ class Env {
   }
 
   static String get apiBaseUrl => localDebug
-      ? 'http://10.0.2.2:$localPort'
+      ? 'http://$localHost:$localPort'
       : current == EmieEnv.prod
           ? _prodBaseUrl
           : _devBaseUrl;

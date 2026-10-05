@@ -678,6 +678,18 @@ class AuthController extends ChangeNotifier {
     _setActionError(action, null);
 
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        bool available = false;
+        try {
+          available = await const MethodChannel('ai.emie.app/config')
+              .invokeMethod<bool>('googleAvailable') ?? false;
+        } on PlatformException { available = false; }
+          on MissingPluginException { available = false; }
+        if (!available) {
+          _setActionError(action, 'Google-Anmeldung für iOS ist noch nicht konfiguriert.');
+          return false;
+        }
+      }
       // ---------------------------------------
       // Google Sign-In konfigurieren
       // ---------------------------------------

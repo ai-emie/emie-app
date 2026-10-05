@@ -15,7 +15,8 @@ class RecoveryLinkController extends ChangeNotifier
     _session.addListener(_sessionChanged);
     acceptRoute(initialRoute ??
         WidgetsBinding.instance.platformDispatcher.defaultRouteName);
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS)) {
       _native.setMethodCallHandler((call) async {
         if (!_disposed && call.method == 'resetLink' && call.arguments is String) {
           acceptRoute(call.arguments as String);
@@ -33,7 +34,7 @@ class RecoveryLinkController extends ChangeNotifier
       final route = await _native.invokeMethod<String>('takeInitial');
       if (!_disposed && route != null) acceptRoute(route);
     } on MissingPluginException {
-      // Widget tests and platforms without the Android bridge.
+      // Widget tests and platforms without a native bridge.
     } on PlatformException {
       if (!_disposed) acceptRoute('/reset-password');
     }
@@ -107,7 +108,8 @@ class RecoveryLinkController extends ChangeNotifier
   @override
   void dispose() {
     _disposed = true;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS)) {
       _native.setMethodCallHandler(null);
     }
     WidgetsBinding.instance.removeObserver(this);
