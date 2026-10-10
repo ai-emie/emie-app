@@ -11,15 +11,31 @@ final class RecoveryIngress {
   var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
   let origin: URLComponents?
   let localPort: Int?
+  let localHost: String?
 
-  init(origin: String, localPort: Int? = nil) {
+  init(origin: String, localPort: Int? = nil, localHost: String = "127.0.0.1") {
     let candidate = URLComponents(string: origin)
     if let value = candidate, value.scheme == "https", !(value.host ?? "").isEmpty,
        value.user == nil, value.password == nil, value.query == nil,
        value.fragment == nil, value.path.isEmpty || value.path == "/" {
       self.origin = value
     } else { self.origin = nil }
-    self.localPort = localPort
+    let valid = localPort.map { (8010...8019).contains($0) } ?? false
+    let hostAllowed = localHost == "127.0.0.1" || Self.isPrivateHost(localHost)
+    self.localPort = valid && hostAllowed ? localPort : nil
+    self.localHost = valid && hostAllowed ? localHost : nil
+  }
+
+  static func isPrivateHost(_ host: String) -> Bool {
+    let pieces = host.split(separator: ".", omittingEmptySubsequences: false)
+    guard pieces.count == 4 else { return false }
+    var octets: [Int] = []
+    for piece in pieces {
+      guard let value = Int(piece), (0...255).contains(value), String(value) == piece else { return false }
+      octets.append(value)
+    }
+    return octets[0] == 10 || (octets[0] == 172 && (16...31).contains(octets[1])) ||
+      (octets[0] == 192 && octets[1] == 168)
   }
 
   func payload(_ url: URL) -> String? {
@@ -32,7 +48,7 @@ final class RecoveryIngress {
         return "/reset-password"
       }
       var mapped = value
-      mapped.scheme = "http"; mapped.host = "127.0.0.1"; mapped.port = port
+      mapped.scheme = "http"; mapped.host = localHost; mapped.port = port
       return mapped.string ?? "/reset-password"
     }
     guard let expected = origin, value.scheme == expected.scheme,
@@ -72,11 +88,16 @@ final class RecoveryIngress {
   private var recoveryChannel: FlutterMethodChannel?
   lazy var recovery: RecoveryIngress = {
     var port: Int? = nil
+    var host = "127.0.0.1"
     #if DEBUG && EMIE_LOCAL
     if let configured = Bundle.main.object(forInfoDictionaryKey: "EMIELocalPort") as? Int,
        (8010...8019).contains(configured) { port = configured }
+    if Bundle.main.object(forInfoDictionaryKey: "EMIELocalDevice") as? Bool == true {
+      host = Bundle.main.object(forInfoDictionaryKey: "EMIELocalHost") as? String ?? ""
+      precondition(RecoveryIngress.isPrivateHost(host), "Invalid Local Debug device target")
+    }
     #endif
-    return RecoveryIngress(origin: Bundle.main.object(forInfoDictionaryKey: "EMIERecoveryOrigin") as? String ?? "", localPort: port)
+    return RecoveryIngress(origin: Bundle.main.object(forInfoDictionaryKey: "EMIERecoveryOrigin") as? String ?? "", localPort: port, localHost: host)
   }()
 
   override func application(

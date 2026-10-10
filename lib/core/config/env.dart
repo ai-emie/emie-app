@@ -4,15 +4,24 @@
 // ===============================================
 
 import 'package:flutter/foundation.dart';
+import 'local_debug_target.dart';
 
 enum EmieEnv { dev, prod }
 
 class Env {
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
-  static bool get localDebug => kDebugMode && localRequested;
-  /// Only the iOS Local Debug simulator uses Mac loopback. Android is unchanged.
-  static String get localHost =>
-      defaultTargetPlatform == TargetPlatform.iOS ? '127.0.0.1' : '10.0.2.2';
+  static bool get localDebug {
+    // Validate an explicit device target even if EMIE_LOCAL was accidentally omitted.
+    localHost;
+    return kDebugMode && localRequested;
+  }
+  static String get localHost => resolveLocalDebugHost(
+      debug: kDebugMode,
+      ios: defaultTargetPlatform == TargetPlatform.iOS,
+      local: localRequested,
+      device: const bool.fromEnvironment('EMIE_LOCAL_DEVICE'),
+      host: const String.fromEnvironment('EMIE_LOCAL_DEVICE_HOST'));
+
   static const int _localPort =
       int.fromEnvironment('EMIE_LOCAL_PORT', defaultValue: 8010);
   static int get localPort {
