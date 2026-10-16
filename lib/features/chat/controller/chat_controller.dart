@@ -208,7 +208,14 @@ class ChatController extends ChangeNotifier {
       _chatSessionId = sessionId;
       _messages
         ..clear()
-        ..addAll(msgs);
+        ..addAll(msgs.map((message) => message.role == 'assistant'
+            ? ChatMessage(
+                id: message.id,
+                role: message.role,
+                text: _sanitizeAssistantText(message.text),
+                createdAt: message.createdAt,
+              )
+            : message));
     } on DioException catch (e) {
       if (_disposed || request != _openRequest) return;
       _debugDio(
@@ -477,24 +484,6 @@ class ChatController extends ChangeNotifier {
         multiLine: true,
       ),
       '',
-    );
-
-    text = text.replaceAll(
-      RegExp(
-        r'^.*antworte.*zahl.*$',
-        multiLine: true,
-        caseSensitive: false,
-      ),
-      '',
-    );
-
-    text = text.replaceAllMapped(
-      RegExp(
-        r'^Welche\s+Variante\s+passt\?\s*[\s\S]*$',
-        multiLine: true,
-        caseSensitive: false,
-      ),
-      (_) => '',
     );
 
     text = text.replaceAll(

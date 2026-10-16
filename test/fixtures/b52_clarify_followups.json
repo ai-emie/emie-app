@@ -1,0 +1,24 @@
+[
+  {
+    "kind": "remaining-conflict",
+    "expected": "Beruf / Tätigkeit (2 von 2)",
+    "response": {
+      "user_id": "95b1df7b-1fc1-4428-af96-4bf7272e0aba",
+      "reply": "Diese Entscheidung ist bestätigt. Der nächste Bereich ist noch offen.\nKlärung: Beruf / Tätigkeit (2 von 2).\nVorher war es **fiktiver Kartograf**, jetzt sagst du **fiktiver Illustrator**.\n\nWelche Variante passt?\n1. Gilt generell (immer) – nimm den neuen Wert\n2. Bleib beim alten Wert (ich habe mich geirrt)\n3. Gilt nur morgens\n4. Gilt nur abends\n5. Andere Situation (schreib kurz z. B. Wochenende / Arbeit / Stress)\n\nAntworte einfach mit der Zahl (z. B. **1**) oder beschreibe kurz die Situation.\nID: CLARIFY:eyJjYXRlZ29yeSI6ImZhY3RzIiwia2V5Ijoid29yayIsIm9sZF92YWx1ZSI6ImZpa3RpdmVyIEthcnRvZ3JhZiIsIm5ld192YWx1ZSI6ImZpa3RpdmVyIElsbHVzdHJhdG9yIiwib3B0aW9ucyI6W3siaWQiOiIxIiwibGFiZWwiOiJHaWx0IGdlbmVyZWxsIChpbW1lcikg4oCTIG5pbW0gZGVuIG5ldWVuIFdlcnQiLCJhY3Rpb24iOiJyZXNvbHZlX3VzZV9uZXcifSx7ImlkIjoiMiIsImxhYmVsIjoiQmxlaWIgYmVpbSBhbHRlbiBXZXJ0IChpY2ggaGFiZSBtaWNoIGdlaXJydCkiLCJhY3Rpb24iOiJyZXNvbHZlX2tlZXBfb2xkIn0seyJpZCI6IjMiLCJsYWJlbCI6IkdpbHQgbnVyIG1vcmdlbnMiLCJhY3Rpb24iOiJ2YXJpYW50Iiwid2hlbiI6eyJ0aW1lX29mX2RheSI6Im1vcm5pbmcifX0seyJpZCI6IjQiLCJsYWJlbCI6IkdpbHQgbnVyIGFiZW5kcyIsImFjdGlvbiI6InZhcmlhbnQiLCJ3aGVuIjp7InRpbWVfb2ZfZGF5IjoiZXZlbmluZyJ9fSx7ImlkIjoiNSIsImxhYmVsIjoiQW5kZXJlIFNpdHVhdGlvbiAoc2NocmVpYiBrdXJ6IHouIEIuIFdvY2hlbmVuZGUgLyBBcmJlaXQgLyBTdHJlc3MpIiwiYWN0aW9uIjoiZnJlZV90ZXh0In1dLCJpdGVtX2lkIjoiMGM5NWU5ZjUtYjk4OS00N2Q4LWFmMzQtNDQ3Mjg5ZWEyZTdkIiwiYmFzaXMiOiI3YzE1ZTc5ZTZiMmI2MjY4NjA3NDU0ODRiNjU3OTExNjg1OTgwZDMwYzUyNWMzMTUxYjlkMTJhNDNlNTQxYzUxIiwidiI6Mywib3duZXIiOiI5NWIxZGY3Yi0xZmMxLTQ0MjgtYWY5Ni00YmY3MjcyZTBhYmEiLCJjb252ZXJzYXRpb24iOiI4OTNmZGVmMy1mNjQ1LTQxMWEtYmNmMy1mODlhNjc2NTc2MmUiLCJzb3VyY2VfYW5jaG9yIjo1NTQsInRvdGFsIjoyLCJwZW5kaW5nIjpbXSwicG9zaXRpb24iOjIsInN0YWdlIjoiY2hvaWNlIiwiYXR0ZW1wdHMiOjAsInNlYWwiOiI3ZGY5YThmM2Q1NzM5ODQ2MDQ3MjAyNDIxODFmZTYwMzk1NGZjNWEwZTU1MGQ3OWY4NjlhZmJiNzU1MTM4MmUzIn0",
+      "used_memories": [],
+      "emotion": null,
+      "timestamp": "2026-10-14T21:40:38.975692"
+    }
+  },
+  {
+    "kind": "situation-step",
+    "expected": "In welcher Situation gilt der neue Wert?",
+    "response": {
+      "user_id": "151d26e6-fa1f-435f-b94b-eb6ea3b34be1",
+      "reply": "Klärung: Hobby.\nVorher war es **fiktive Wolkenkarten**, jetzt sagst du **fiktive Sternkarten**.\n\nIn welcher Situation gilt der neue Wert? Schreib zum Beispiel: am Wochenende, abends oder bei Stress. Mit Abbrechen beendest du die noch offene Klärung.\nID: CLARIFY:eyJjYXRlZ29yeSI6ImZhY3RzIiwia2V5IjoiaG9iYnkiLCJvbGRfdmFsdWUiOiJmaWt0aXZlIFdvbGtlbmthcnRlbiIsIm5ld192YWx1ZSI6ImZpa3RpdmUgU3Rlcm5rYXJ0ZW4iLCJvcHRpb25zIjpbeyJpZCI6IjEiLCJsYWJlbCI6IkdpbHQgZ2VuZXJlbGwgKGltbWVyKSDigJMgbmltbSBkZW4gbmV1ZW4gV2VydCIsImFjdGlvbiI6InJlc29sdmVfdXNlX25ldyJ9LHsiaWQiOiIyIiwibGFiZWwiOiJCbGVpYiBiZWltIGFsdGVuIFdlcnQgKGljaCBoYWJlIG1pY2ggZ2VpcnJ0KSIsImFjdGlvbiI6InJlc29sdmVfa2VlcF9vbGQifSx7ImlkIjoiMyIsImxhYmVsIjoiR2lsdCBudXIgbW9yZ2VucyIsImFjdGlvbiI6InZhcmlhbnQiLCJ3aGVuIjp7InRpbWVfb2ZfZGF5IjoibW9ybmluZyJ9fSx7ImlkIjoiNCIsImxhYmVsIjoiR2lsdCBudXIgYWJlbmRzIiwiYWN0aW9uIjoidmFyaWFudCIsIndoZW4iOnsidGltZV9vZl9kYXkiOiJldmVuaW5nIn19LHsiaWQiOiI1IiwibGFiZWwiOiJBbmRlcmUgU2l0dWF0aW9uIChzY2hyZWliIGt1cnogei4gQi4gV29jaGVuZW5kZSAvIEFyYmVpdCAvIFN0cmVzcykiLCJhY3Rpb24iOiJmcmVlX3RleHQifV0sIml0ZW1faWQiOiJkZTIwZGViNi01YzUwLTQ0ZTQtODFlYS02NzdmMmVhNzU3NjMiLCJiYXNpcyI6IjQ0YjkxYTVmY2IyOTNhYzlkNDliODgwODQzZWNmY2Y0ZGVlOWQ5ODFiZWJlMTIzMTMxMjAyYmY3NDM0MDMyZDgiLCJ2IjozLCJvd25lciI6IjE1MWQyNmU2LWZhMWYtNDM1Zi1iOTRiLWViNmVhM2IzNGJlMSIsImNvbnZlcnNhdGlvbiI6IjQ4OGFjMDg5LWFjN2MtNDYwMy1iOGZlLTNkOGIzMzQyYWMzZSIsInNvdXJjZV9hbmNob3IiOjU2MiwicGVuZGluZyI6W10sInBvc2l0aW9uIjoxLCJ0b3RhbCI6MSwic3RhZ2UiOiJzaXR1YXRpb24iLCJhdHRlbXB0cyI6MCwic2VhbCI6IjlkYzJmNmM0YjEzMWJmZmMxOWYwMWJhYjcwODNhYmU3YTQwMWExZTc0MjFlNjY0YmFmMTQ5Nzg3Njc5OTVkNTUifQ",
+      "used_memories": [],
+      "emotion": null,
+      "timestamp": "2026-10-14T21:40:39.438257"
+    }
+  }
+]
