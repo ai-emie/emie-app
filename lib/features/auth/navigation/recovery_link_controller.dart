@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../state/session_store.dart';
-import '../../../../core/config/env.dart';
+import '../../../state/session_store.dart';
+import '../../../core/config/env.dart';
 
 /// A small ingress for the existing Navigator. Native URL association is B3.
 /// Proofs remain in RAM, never in route names, preferences or secure storage.
