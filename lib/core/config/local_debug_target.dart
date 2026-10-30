@@ -1,11 +1,18 @@
 // Explicit, per-build iPhone Local Debug target. Never a general URL override.
 String resolveLocalDebugHost({
+  bool web = false,
   required bool debug,
   required bool ios,
   required bool local,
   required bool device,
   required String host,
 }) {
+  if (web && debug && local) {
+    if (device || host.isNotEmpty) {
+      throw StateError('Web Local Debug uses loopback only');
+    }
+    return '127.0.0.1';
+  }
   final fallback = ios ? '127.0.0.1' : '10.0.2.2';
   if (!debug || !ios) return fallback;
   if (!device && host.isEmpty) return fallback;

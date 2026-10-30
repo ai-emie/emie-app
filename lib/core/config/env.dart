@@ -16,6 +16,7 @@ class Env {
     return kDebugMode && localRequested;
   }
   static String get localHost => resolveLocalDebugHost(
+      web: kIsWeb,
       debug: kDebugMode,
       ios: defaultTargetPlatform == TargetPlatform.iOS,
       local: localRequested,

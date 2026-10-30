@@ -4,6 +4,12 @@ import 'package:emie/core/config/local_debug_target.dart';
 import 'package:emie/core/config/env.dart';
 
 void main() {
+  test('local web uses loopback and rejects device overrides', () {
+    expect(resolveLocalDebugHost(web: true, debug: true, ios: false, local: true, device: false, host: ''), '127.0.0.1');
+    expect(resolveLocalDebugHost(web: true, debug: false, ios: false, local: true, device: false, host: ''), '10.0.2.2');
+    expect(resolveLocalDebugHost(web: true, debug: true, ios: false, local: false, device: false, host: ''), '10.0.2.2');
+    expect(() => resolveLocalDebugHost(web: true, debug: true, ios: false, local: true, device: true, host: '192.168.1.2'), throwsStateError);
+  });
   test('explicit iPhone private target; unchanged simulator and Android', () {
     expect(resolveLocalDebugHost(debug: true, ios: true, local: true, device: true, host: '172.20.10.11'), '172.20.10.11');
     expect(resolveLocalDebugHost(debug: true, ios: true, local: true, device: false, host: ''), '127.0.0.1');
