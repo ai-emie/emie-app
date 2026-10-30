@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/config/env.dart';
@@ -7,6 +6,7 @@ import '../core/config/local_probe.dart';
 import '../core/storage/secure_storage.dart';
 import '../data/auth/auth_models.dart';
 import '../state/session_store.dart';
+import 'platform_dio.dart' if (dart.library.js_interop) 'platform_dio_web.dart';
 
 class ApiClient {
   ApiClient._internal() {
@@ -180,7 +180,7 @@ class ApiClient {
 
 /// Capture synchronously when fetch is called, before Dio schedules interceptors.
 /// Retries retain both their original generation and explicitly rotated header.
-class _SessionDio extends DioForNative {
+class _SessionDio extends PlatformDio {
   _SessionDio(super.options, {this.attachAccess = true});
   final bool attachAccess;
   static int _probeSequence = 0;
