@@ -509,9 +509,12 @@ class ChatController extends ChangeNotifier {
             .toRadixString(16)
             .padLeft(width, '0');
 
+    // JavaScript bitwise shifts are 32-bit; 1 << 32 becomes zero on web.
+    const uint32Range = 0x100000000;
+
     final a =
         hex(
-      rand.nextInt(1 << 32),
+      rand.nextInt(uint32Range),
       8,
     );
 
@@ -537,7 +540,7 @@ class ChatController extends ChangeNotifier {
 
     final e =
         hex(
-          rand.nextInt(1 << 32),
+          rand.nextInt(uint32Range),
           8,
         ) +
         hex(
