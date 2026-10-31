@@ -236,4 +236,16 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     dio.close();
   });
+  testWidgets('explicit Resend mode labels emulator links without claiming delivery',
+      (tester) async {
+    final dio = Dio()
+      ..httpClientAdapter = _Transport((request) async =>
+          _reply(200, {'mode': 'P5', 'mail': 'resend-emulator', 'ai': false}));
+    await tester.pumpWidget(MaterialApp(home: WindowsAuthStatus(dio: dio)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Resend · Links nur Pixel_9'), findsOneWidget);
+    expect(find.textContaining('nur lokale Mailablage'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    dio.close();
+  });
 }

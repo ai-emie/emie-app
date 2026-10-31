@@ -15,6 +15,7 @@ class _WindowsAuthStatusState extends State<WindowsAuthStatus> {
   Timer? _timer;
   bool _checking = false;
   bool _ready = false;
+  bool _resend = false;
   @override
   void initState() {
     super.initState();
@@ -26,6 +27,7 @@ class _WindowsAuthStatusState extends State<WindowsAuthStatus> {
     if (_checking || !mounted) return;
     _checking = true;
     var ready = false;
+    var resend = false;
     try {
       final response = await (widget.dio ?? ApiClient().dio).get<dynamic>(
           '/v1/local/mode',
@@ -33,16 +35,21 @@ class _WindowsAuthStatusState extends State<WindowsAuthStatus> {
               receiveTimeout: const Duration(seconds: 2),
               sendTimeout: const Duration(seconds: 2)));
       final data = response.data;
-      ready = data is Map &&
-          data['mode'] == 'P4' &&
-          data['mail'] == 'local-only' &&
-          data['ai'] == false;
+      if (data is Map && data['ai'] == false) {
+        resend = data['mode'] == 'P5' && data['mail'] == 'resend-emulator';
+        ready = resend || (data['mode'] == 'P4' && data['mail'] == 'local-only');
+      }
     } catch (_) {
       ready = false;
     } finally {
       _checking = false;
     }
-    if (mounted) setState(() => _ready = ready);
+    if (mounted) {
+      setState(() {
+        _ready = ready;
+        _resend = resend;
+      });
+    }
   }
 
   @override
@@ -60,7 +67,9 @@ class _WindowsAuthStatusState extends State<WindowsAuthStatus> {
               padding: const EdgeInsets.all(8),
               child: Text(
                   _ready
-                      ? 'Windows Konto-Test · nur lokale Mailablage · KI aus'
+                      ? _resend
+                          ? 'Windows Konto-Test · Resend · Links nur Pixel_9 · KI aus'
+                          : 'Windows Konto-Test · nur lokale Mailablage · KI aus'
                       : 'Windows Konto-Test · Backend nicht bereit oder nicht verbunden',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall))));
