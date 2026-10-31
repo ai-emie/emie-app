@@ -9,6 +9,8 @@ import 'local_debug_target.dart';
 enum EmieEnv { dev, prod }
 
 class Env {
+  static bool get offline =>
+      localDebug && const bool.fromEnvironment('EMIE_OFFLINE');
   static bool get p1 => localDebug && const bool.fromEnvironment('EMIE_P1');
 
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');

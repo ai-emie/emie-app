@@ -200,6 +200,10 @@ class _ChatViewState extends State<ChatScreen> {
             SafeArea(
               child: Column(
                 children: [
+                  if (Env.offline) const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text('Lokale Offline-Entwicklung · echte KI nicht freigegeben'),
+                  ),
                   if (Env.p1) const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text('Lokale Entwicklung · echte API-Kosten · Kontingent: Terminal status'),
@@ -260,7 +264,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ),
                     ),
                   ChatInputBar(
-                    enabled: !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
+                    enabled: !Env.offline && !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
                     controller: _textController,
                     onSend: () => _send(context),
                     onSnack: (_) {},
