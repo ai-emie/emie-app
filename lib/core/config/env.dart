@@ -9,6 +9,8 @@ import 'local_debug_target.dart';
 enum EmieEnv { dev, prod }
 
 class Env {
+  static bool get p1 => localDebug && const bool.fromEnvironment('EMIE_P1');
+
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
   static bool get localDebug {
     // Validate an explicit device target even if EMIE_LOCAL was accidentally omitted.

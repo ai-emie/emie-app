@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/config/env.dart';
 import '../../../../core/localization/b2_text.dart';
 import '../../../../data/chat/chat_models.dart';
 import '../../../../data/chat/chat_session_models.dart';
@@ -199,6 +200,10 @@ class _ChatViewState extends State<ChatScreen> {
             SafeArea(
               child: Column(
                 children: [
+                  if (Env.p1) const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('Lokale Entwicklung · echte API-Kosten · Kontingent: Terminal status'),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       22,
@@ -233,7 +238,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ? _t(context, de: 'Historie nicht aktuell. Bitte neu laden.', en: 'History is not up to date. Please reload.')
                       : chat.error == 'chat_open_failed'
                         ? _t(context, de: 'Gespräch konnte nicht geöffnet werden. Bitte erneut versuchen.', en: 'Could not open conversation. Please try again.')
-                        : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
+                        : Env.p1 ? chat.error! : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
                   if (_uiHint != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -255,6 +260,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ),
                     ),
                   ChatInputBar(
+                    enabled: !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
                     controller: _textController,
                     onSend: () => _send(context),
                     onSnack: (_) {},
@@ -511,6 +517,7 @@ class _ChatViewState extends State<ChatScreen> {
                               ),
                               const Spacer(),
                               IconButton(
+                                tooltip: _t(context, de: 'Neuer Chat', en: 'New chat'),
                                 onPressed: () {
                                   Navigator.of(
                                     sheetContext,

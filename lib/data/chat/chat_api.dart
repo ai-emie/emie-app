@@ -6,6 +6,7 @@
 import 'package:dio/dio.dart';
 
 import '../../api/client.dart';
+import '../../core/config/env.dart';
 import 'chat_models.dart';
 import 'chat_session_models.dart';
 
@@ -166,6 +167,10 @@ class ChatApi {
 
     final res = await _dio.post(
       '/v1/chat/respond',
+      options: Env.p1
+          ? ApiClient.sessionOptions(null, noRefresh: true).copyWith(
+              receiveTimeout: const Duration(seconds: 70))
+          : null,
       data: {
         'message': trimmed,
         'provider': provider,

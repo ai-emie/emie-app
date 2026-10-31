@@ -33,6 +33,27 @@ class ApiError implements Exception {
   factory ApiError.fromDio(DioException e) {
     final status = e.response?.statusCode;
 
+    final data = e.response?.data;
+    final detail = data is Map ? data['detail'] : null;
+    final code = detail is Map ? detail['code'] : null;
+    const localMessages = <String, String>{
+      'P1_BUDGET': 'Lokales Entwicklungskontingent erreicht. Keine automatische Erhöhung.',
+      'P1_AUTH': 'OpenAI-Schlüssel abgelehnt oder Berechtigung fehlt. Lokalen Status prüfen.',
+      'P1_MODEL': 'Das OpenAI-Modell ist für diesen Schlüssel nicht verfügbar.',
+      'P1_UNCERTAIN': 'Anbieterausgang unklar. Nicht erneut senden; lokalen Status prüfen.',
+      'P1_NETWORK': 'Anbieterverbindung fehlgeschlagen. Nicht automatisch erneut senden.',
+      'P1_RESPONSE': 'Keine vollständige Anbieterantwort. Lokalen Status prüfen.',
+      'P1_UNAVAILABLE': 'Antwort-Engine nicht verfügbar. Keine KI-Antwort bestätigt.',
+      'P1_PRICE': 'Die lokale Preisfreigabe muss erneut geprüft werden.',
+      'P1_POLICY': 'Lokale Sicherheits- oder Budgetprüfung hat den Aufruf gesperrt.',
+      'P1_PROTECTED': 'Historischer Nachweis: Bitte einen neuen Chat öffnen.',
+      'P1_SCOPE': 'Diese Aktion gehört nicht zum lokalen Textchat-Modus.',
+      'P1_BUSY': 'Eine Nachricht wird noch verarbeitet. Bitte kurz warten.',
+    };
+    if (code is String && localMessages.containsKey(code)) {
+      return ApiError(type: ApiErrorType.server, message: localMessages[code]!, statusCode: status);
+    }
+
     // Netzwerk/Timeout
     if (e.type == DioExceptionType.connectionError) {
       return const ApiError(
@@ -89,7 +110,7 @@ class ApiError implements Exception {
     // Fallback
     return ApiError(
       type: ApiErrorType.unknown,
-      message: e.message ?? 'Unbekannter Fehler',
+      message: 'Vorgang nicht bestätigt. Bitte die Historie prüfen.',
       statusCode: status,
     );
   }

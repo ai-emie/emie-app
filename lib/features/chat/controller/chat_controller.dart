@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../api/api_error.dart';
+import '../../../core/config/env.dart';
 import '../../../state/session_store.dart';
 import '../../../data/chat/chat_models.dart';
 import '../../../data/chat/chat_repository.dart';
@@ -397,10 +398,14 @@ class ChatController extends ChangeNotifier {
       _error =
           apiError.message;
 
-      _replaceTypingWithFallback(
-        typingMsg.id,
-        _unconfirmedReply,
-      );
+      if (Env.p1) {
+        _messages.removeWhere((message) => message.id == typingMsg.id);
+      } else {
+        _replaceTypingWithFallback(
+          typingMsg.id,
+          _unconfirmedReply,
+        );
+      }
     } catch (e) {
       if (_disposed) return;
       _debugErrorType(
@@ -411,10 +416,14 @@ class ChatController extends ChangeNotifier {
       _error =
           'Es ist ein unerwarteter Fehler aufgetreten.';
 
-      _replaceTypingWithFallback(
-        typingMsg.id,
-        _unconfirmedReply,
-      );
+      if (Env.p1) {
+        _messages.removeWhere((message) => message.id == typingMsg.id);
+      } else {
+        _replaceTypingWithFallback(
+          typingMsg.id,
+          _unconfirmedReply,
+        );
+      }
     } finally {
       if (!_disposed) {
         _isSending = false;

@@ -12,6 +12,7 @@ class ChatInputBar extends StatelessWidget {
   const ChatInputBar({
     super.key,
     required this.controller,
+    this.enabled = true,
     required this.onSend,
     required this.onSnack,
     required this.surface,
@@ -25,6 +26,7 @@ class ChatInputBar extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final bool enabled;
   final VoidCallback onSend;
   final void Function(String msg) onSnack;
 
@@ -116,6 +118,7 @@ class ChatInputBar extends StatelessWidget {
                     ),
                   ),
                   child: TextField(
+                    enabled: enabled,
                     controller: controller,
                     minLines: 1,
                     maxLines: 4,
@@ -166,33 +169,36 @@ class ChatInputBar extends StatelessWidget {
               // SEND BUTTON
               // =================================
 
-              GestureDetector(
-                onTap: onSend,
-                behavior:
-                    HitTestBehavior.opaque,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color:
-                        gold.withOpacity(0.90),
-                    boxShadow: [
-                      BoxShadow(
-                        color: amber.withOpacity(
-                          isDark ? 0.14 : 0.12,
+              Semantics(
+                button: true, label: 'Nachricht senden', enabled: enabled,
+                child: GestureDetector(
+                  onTap: enabled ? onSend : null,
+                  behavior:
+                      HitTestBehavior.opaque,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color:
+                          gold.withOpacity(0.90),
+                      boxShadow: [
+                        BoxShadow(
+                          color: amber.withOpacity(
+                            isDark ? 0.14 : 0.12,
+                          ),
+                          blurRadius: 22,
+                          spreadRadius: -4,
                         ),
-                        blurRadius: 22,
-                        spreadRadius: -4,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.arrow_upward_rounded,
-                    color: isDark
-                        ? Colors.black
-                        : Colors.white,
-                    size: 21,
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.arrow_upward_rounded,
+                      color: isDark
+                          ? Colors.black
+                          : Colors.white,
+                      size: 21,
+                    ),
                   ),
                 ),
               ),
