@@ -18,6 +18,7 @@ import '../../../../shared/widgets/emie_app_bar.dart';
 import '../../controller/chat_controller.dart';
 
 import '../widgets/chat_input_bar.dart';
+import '../widgets/windows_chat_status.dart';
 import '../widgets/emie_response_card.dart';
 import '../widgets/emie_typing_line.dart';
 
@@ -35,6 +36,7 @@ class _ChatViewState extends State<ChatScreen> {
 
   int _lastMessageCount = 0;
   String? _uiHint;
+  bool _p3Ready = false;
 
   @override
   void initState() {
@@ -70,7 +72,7 @@ class _ChatViewState extends State<ChatScreen> {
 
     final text = _textController.text.trim();
 
-    if (text.isEmpty || chat.isSending || chat.isLoadingHistory || chat.isDeleting) {
+    if (Env.offline || (Env.p3 && !_p3Ready) || text.isEmpty || chat.isSending || chat.isLoadingHistory || chat.isDeleting) {
       return;
     }
 
@@ -208,6 +210,9 @@ class _ChatViewState extends State<ChatScreen> {
                     padding: EdgeInsets.only(top: 8),
                     child: Text('Lokale Entwicklung · echte API-Kosten · Kontingent: Terminal status'),
                   ),
+                  if (Env.p3) WindowsChatStatus(onReady: (ready) {
+                    if (mounted && ready != _p3Ready) setState(() => _p3Ready = ready);
+                  }),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       22,
@@ -242,7 +247,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ? _t(context, de: 'Historie nicht aktuell. Bitte neu laden.', en: 'History is not up to date. Please reload.')
                       : chat.error == 'chat_open_failed'
                         ? _t(context, de: 'Gespräch konnte nicht geöffnet werden. Bitte erneut versuchen.', en: 'Could not open conversation. Please try again.')
-                        : Env.p1 ? chat.error! : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
+                        : Env.localAi ? chat.error! : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
                   if (_uiHint != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -264,7 +269,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ),
                     ),
                   ChatInputBar(
-                    enabled: !Env.offline && !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
+                    enabled: !Env.offline && (!Env.p3 || _p3Ready) && !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
                     controller: _textController,
                     onSend: () => _send(context),
                     onSnack: (_) {},

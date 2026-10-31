@@ -307,7 +307,7 @@ class ChatController extends ChangeNotifier {
   ) async {
     final trimmed = text.trim();
 
-    if (_disposed ||
+    if (_disposed || Env.offline ||
         trimmed.isEmpty ||
         _isSending || _isDeleting || isLoadingHistory) {
       return;
@@ -397,8 +397,11 @@ class ChatController extends ChangeNotifier {
 
       _error =
           apiError.message;
+      if (Env.localAi && (apiError.type == ApiErrorType.network || apiError.type == ApiErrorType.timeout)) {
+        _error = 'Verbindung unterbrochen oder Zeitüberschreitung. Ausgang unklar; nicht erneut senden. Historie und lokalen Status prüfen.';
+      }
 
-      if (Env.p1) {
+      if (Env.localAi) {
         _messages.removeWhere((message) => message.id == typingMsg.id);
       } else {
         _replaceTypingWithFallback(
@@ -416,7 +419,7 @@ class ChatController extends ChangeNotifier {
       _error =
           'Es ist ein unerwarteter Fehler aufgetreten.';
 
-      if (Env.p1) {
+      if (Env.localAi) {
         _messages.removeWhere((message) => message.id == typingMsg.id);
       } else {
         _replaceTypingWithFallback(

@@ -12,6 +12,17 @@ class Env {
   static bool get offline =>
       localDebug && const bool.fromEnvironment('EMIE_OFFLINE');
   static bool get p1 => localDebug && const bool.fromEnvironment('EMIE_P1');
+  static bool get p3 {
+    if (!const bool.fromEnvironment('EMIE_P3')) return false;
+    if (!localDebug || kIsWeb || defaultTargetPlatform != TargetPlatform.android ||
+        localHost != '10.0.2.2' || localPort != 8011 ||
+        const bool.fromEnvironment('EMIE_P1') ||
+        const bool.fromEnvironment('EMIE_OFFLINE')) {
+      throw StateError('P3 requires exclusive Android debug mode at 10.0.2.2:8011');
+    }
+    return true;
+  }
+  static bool get localAi => p3 || p1;
 
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
   static bool get localDebug {
@@ -86,11 +97,14 @@ class Env {
     return kReleaseMode ? EmieEnv.prod : EmieEnv.dev;
   }
 
-  static String get apiBaseUrl => localDebug
+  static String get apiBaseUrl {
+    p3; // Reject inconsistent P3 targets before any HTTP client is constructed.
+    return localDebug
       ? 'http://$localHost:$localPort'
       : current == EmieEnv.prod
           ? _prodBaseUrl
           : _devBaseUrl;
+  }
 
   // ===========================================================
   //  • GOOGLE LOGIN

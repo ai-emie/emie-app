@@ -35,7 +35,10 @@ class ApiError implements Exception {
 
     final data = e.response?.data;
     final detail = data is Map ? data['detail'] : null;
-    final code = detail is Map ? detail['code'] : null;
+    final rawCode = detail is Map ? detail['code'] : null;
+    // Both explicit local modes share fixed messages, never server-supplied prose.
+    final code = rawCode is String && rawCode.startsWith('P3_')
+        ? 'P1_${rawCode.substring(3)}' : rawCode;
     const localMessages = <String, String>{
       'P1_BUDGET': 'Lokales Entwicklungskontingent erreicht. Keine automatische Erhöhung.',
       'P1_AUTH': 'OpenAI-Schlüssel abgelehnt oder Berechtigung fehlt. Lokalen Status prüfen.',
@@ -49,6 +52,7 @@ class ApiError implements Exception {
       'P1_PROTECTED': 'Historischer Nachweis: Bitte einen neuen Chat öffnen.',
       'P1_SCOPE': 'Diese Aktion gehört nicht zum lokalen Textchat-Modus.',
       'P1_BUSY': 'Eine Nachricht wird noch verarbeitet. Bitte kurz warten.',
+      'P2_OFFLINE': 'Lokales Backend ist im Offline-Modus. KI-Senden bleibt gesperrt.',
     };
     if (code is String && localMessages.containsKey(code)) {
       return ApiError(type: ApiErrorType.server, message: localMessages[code]!, statusCode: status);

@@ -1,6 +1,9 @@
-param([ValidatePattern('^emulator-[0-9]+$')][string]$DeviceId = 'emulator-5554')
+param(
+    [ValidatePattern('^emulator-[0-9]+$')][string]$DeviceId = 'emulator-5554',
+    [ValidateSet('Offline', 'KI')][string]$Development = 'Offline'
+)
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = "Emie P2 - Flutter OFFLINE - $DeviceId (r = Hot Reload)"
+$Host.UI.RawUI.WindowTitle = "Emie Windows - Flutter $Development - $DeviceId (r = Hot Reload)"
 $flutter = 'C:\Users\Patze\flutter\bin\flutter.bat'
 $sdk = 'C:\Users\Patze\AppData\Local\Android\sdk'
 $jdk = 'C:\Users\Patze\Emie-LocalDev\b3-20261002T132620Z-4c04767e\tools\jdk-21.0.12.1+1'
@@ -26,7 +29,8 @@ try {
     $env:GRADLE_OPTS = '-Dorg.gradle.jvmargs=-Xmx3G -Dorg.gradle.workers.max=2 -Dorg.gradle.daemon=false'
     Push-Location -LiteralPath $PSScriptRoot
     try {
-        & $flutter run --debug --no-pub -d $DeviceId --dart-define=EMIE_LOCAL=true --dart-define=EMIE_LOCAL_PORT=8011 --dart-define=EMIE_OFFLINE=true --vmservice-out-file=.dart_tool/p2-vm-service.json
+        $localMode = if ($Development -eq 'KI') { '--dart-define=EMIE_P3=true' } else { '--dart-define=EMIE_OFFLINE=true' }
+        & $flutter run --debug --no-pub -d $DeviceId --dart-define=EMIE_LOCAL=true --dart-define=EMIE_LOCAL_PORT=8011 $localMode --vmservice-out-file=.dart_tool/p2-vm-service.json
         $result = $LASTEXITCODE
     } finally { Pop-Location }
 } finally {

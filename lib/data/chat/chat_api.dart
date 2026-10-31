@@ -167,7 +167,7 @@ class ChatApi {
 
     final res = await _dio.post(
       '/v1/chat/respond',
-      options: Env.p1
+      options: Env.localAi
           ? ApiClient.sessionOptions(null, noRefresh: true).copyWith(
               receiveTimeout: const Duration(seconds: 70))
           : null,
