@@ -171,6 +171,7 @@ class AuthApi {
     final response = await _dio.post('/v1/auth/register',
         options: ApiClient.sessionOptions(generation, noRefresh: true),
         data: {'name': name, 'email': email, 'password': password});
+    _requireVerificationAck(response, 201);
     return VerifyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -179,7 +180,16 @@ class AuthApi {
     final response = await _dio.post('/v1/auth/verify',
         options: ApiClient.sessionOptions(generation, noRefresh: true),
         data: {'token': token});
+    _requireVerificationAck(response, 200);
     return VerifyResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  void _requireVerificationAck(Response<dynamic> response, int status) {
+    if (response.statusCode != status || response.data is! Map ||
+        response.data['message'] is! String ||
+        (response.data['message'] as String).trim().isEmpty) {
+      throw StateError('Account operation acknowledgement unavailable');
+    }
   }
 
   Future<UserProfile> me({int? generation}) async {

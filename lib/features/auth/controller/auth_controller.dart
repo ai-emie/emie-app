@@ -380,7 +380,7 @@ class AuthController extends ChangeNotifier {
             action,
             'Das Passwort ist falsch.',
           );
-        } else if (detail.contains('not verified')) {
+        } else if (detail.contains('not verified') || detail.contains('nicht verifiziert')) {
           _setActionError(
             action,
             'Bitte bestätige zuerst deine E-Mail.',
@@ -435,6 +435,7 @@ class AuthController extends ChangeNotifier {
     String email,
     String password,
   ) async {
+    if (isLoading) return false;
     final action = _beginAction();
     _setActionError(action, null);
 
@@ -510,6 +511,7 @@ class AuthController extends ChangeNotifier {
   Future<bool> verifyEmail(
     String token,
   ) async {
+    if (isLoading) return false;
     final action = _beginAction();
     _setActionError(action, null);
 
@@ -518,23 +520,21 @@ class AuthController extends ChangeNotifier {
 
       return _owns(action) && _session.isCurrent(action.origin);
     } on DioException catch (e) {
-      final apiError = ApiError.fromDio(e);
       final status = e.response?.statusCode ?? 0;
 
       final detailRaw = _extractDetail(e);
       final detail = detailRaw?.toLowerCase() ?? '';
 
       if (status == 400 || status == 401) {
-        if (detail.contains('expired') || detail.contains('invalid')) {
+        if (detail.contains('expired') || detail.contains('abgelaufen')) {
           _setActionError(
             action,
-            'Bestätigung fehlgeschlagen. '
-            'Der Link ist ungültig oder abgelaufen.',
+            'Der Bestätigungslink ist abgelaufen. Fordere eine neue E-Mail an.',
           );
         } else {
           _setActionError(
             action,
-            apiError.message,
+            'Der Bestätigungslink ist ungültig oder bereits verwendet. Fordere bei Bedarf eine neue E-Mail an.',
           );
         }
       } else if (status >= 500) {
@@ -545,7 +545,7 @@ class AuthController extends ChangeNotifier {
       } else {
         _setActionError(
           action,
-          apiError.message,
+          'Die E-Mail konnte nicht bestätigt werden. Prüfe deine Verbindung und versuche es später erneut.',
         );
       }
 
@@ -558,8 +558,7 @@ class AuthController extends ChangeNotifier {
     } catch (e) {
       _setActionError(
         action,
-        'Bestätigung fehlgeschlagen. '
-        'Link vielleicht abgelaufen.',
+        'Die E-Mail konnte nicht bestätigt werden. Bitte versuche es später erneut.',
       );
 
       _debugErrorType(
@@ -1057,6 +1056,7 @@ class AuthController extends ChangeNotifier {
 
   Future<bool> _recoverAccount(Future<void> Function(int) request,
       {bool proof = false}) async {
+    if (isLoading) return false;
     final action = _beginAction();
     try {
       await request(action.origin);

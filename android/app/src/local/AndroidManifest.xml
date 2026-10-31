@@ -14,6 +14,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="http" android:host="10.0.2.2"
                     android:port="${localBackendPort}" android:path="/reset-password" />
+                <data android:scheme="http" android:host="10.0.2.2"
+                    android:port="${localBackendPort}" android:path="/v1/auth/verify" />
             </intent-filter>
         </activity>
     </application>

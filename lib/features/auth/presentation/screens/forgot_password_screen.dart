@@ -35,6 +35,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _submit(AuthController auth) async {
+    if (auth.isLoading) return;
     FocusScope.of(context).unfocus();
     auth.clearError();
     setState(() => _hint = null);
@@ -51,7 +52,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (ok) {
       setState(() {
         _hint =
-            'Wenn ein Account existiert, wurde eine E-Mail zum Zurücksetzen gesendet.';
+            'Wenn ein Account existiert, wurde eine E-Mail zum Zurücksetzen angefordert. Öffne den neuesten Link.';
       });
     }
   }
@@ -126,6 +127,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       const SizedBox(height: 16),
 
                       TextFormField(
+                        key: const ValueKey('forgot-email'),
+                        enabled: !auth.isLoading,
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(color: Colors.white),

@@ -5,8 +5,10 @@ import '../../../../state/session_store.dart';
 import '../../controller/auth_controller.dart';
 
 class VerificationRecoveryScreen extends StatefulWidget {
-  const VerificationRecoveryScreen({super.key, this.initialEmail = ''});
+  const VerificationRecoveryScreen({super.key, this.initialEmail = '', this.registrationRequested = false, this.onDone});
   final String initialEmail;
+  final bool registrationRequested;
+  final VoidCallback? onDone;
 
   @override
   State<VerificationRecoveryScreen> createState() =>
@@ -61,6 +63,10 @@ class _VerificationRecoveryScreenState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (widget.registrationRequested) const Text(
+                      'Registrierung angefragt. Falls ein neues Konto angelegt werden konnte, '
+                      'öffne die Bestätigungs-Mail. Danach kannst du dich regulär anmelden.',
+                      key: ValueKey('registration-requested')),
                   const Text(
                       'Keine Mail erhalten oder Link abgelaufen? Fordere eine neue Bestätigungs-Mail an. '
                       'Öffne anschließend den neuesten Link und kehre zum Login zurück.'),
@@ -106,7 +112,7 @@ class _VerificationRecoveryScreenState
                     key: const ValueKey('verification-return'),
                     onPressed: auth.isLoading
                         ? null
-                        : () => Navigator.of(context)
+                        : widget.onDone ?? () => Navigator.of(context)
                             .popUntil((route) => route.isFirst),
                     child: const Text('Zurück zum Login'),
                   ),

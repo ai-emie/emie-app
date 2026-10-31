@@ -61,6 +61,7 @@ class _AuthScreenState extends State<AuthScreen> {
   //  SUBMIT-LOGIK
   // ===============================================
   Future<void> _submit(AuthController auth) async {
+    if (auth.isLoading) return;
     FocusScope.of(context).unfocus();
     auth.clearError();
     setState(() => _uiHint = null);
@@ -97,7 +98,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _isLoginMode = true;
       });
       Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => VerificationRecoveryScreen(initialEmail: email)));
+          builder: (_) => VerificationRecoveryScreen(initialEmail: email, registrationRequested: true)));
     }
   }
 
@@ -303,6 +304,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     if (text.isEmpty) {
                       return 'Bitte deinen Namen eingeben.';
                     }
+                    if (text.runes.length > 80) return 'Bitte höchstens 80 Zeichen verwenden.';
                     return null;
                   },
                 ),
@@ -318,7 +320,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 validator: (value) {
                   final text = value?.trim() ?? '';
                   if (text.isEmpty) return 'Bitte E-Mail eingeben.';
-                  if (!text.contains('@') || !text.contains('.')) {
+                  if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) {
                     return 'Bitte eine gültige E-Mail-Adresse eingeben.';
                   }
                   return null;
@@ -349,7 +351,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 validator: (value) {
                   final text = value ?? '';
                   if (text.isEmpty) return 'Bitte Passwort eingeben.';
-                  if (text.length < 6) return 'Mindestens 6 Zeichen.';
+                  if (text.runes.length < 6) return 'Mindestens 6 Zeichen.';
                   return null;
                 },
               ),

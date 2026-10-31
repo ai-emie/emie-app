@@ -16,6 +16,9 @@ import 'state/session_store.dart';
 import 'features/auth/controller/auth_controller.dart';
 import 'features/auth/presentation/screens/auth_screen.dart';
 import 'features/auth/presentation/screens/reset_password_screen.dart';
+import 'features/auth/presentation/screens/verify_email_screen.dart';
+import 'features/auth/presentation/widgets/windows_auth_status.dart';
+import 'core/config/env.dart';
 import 'features/auth/navigation/recovery_link_controller.dart';
 
 import 'features/chat/presentation/widgets/authenticated_chat_scope.dart';
@@ -111,7 +114,9 @@ class _EmieAppState extends State<EmieApp> {
           final rootPage = session.isBootstrapping
               ? const _BootstrapScreen()
               : _recovery.hasPending
-                  ? ResetPasswordScreen(token: _recovery.token, onDone: _recovery.dismiss)
+                  ? _recovery.isVerification
+                      ? VerifyEmailScreen(token: _recovery.token, onDone: _recovery.dismiss)
+                      : ResetPasswordScreen(token: _recovery.token, onDone: _recovery.dismiss)
                   : session.isAuthenticated
                       ? const MainShell()
                       : const AuthScreen();
@@ -140,6 +145,7 @@ class _EmieAppState extends State<EmieApp> {
                   ? session.language
                   : notice?.operation.language ?? session.language;
               return Column(children: [
+                if (Env.p4) const WindowsAuthStatus(),
                 if (notice != null)
                   Material(
                     key: const ValueKey('account-deletion-notice'),

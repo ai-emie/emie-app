@@ -42,11 +42,13 @@ class RecoveryLinkController extends ChangeNotifier
 
   final SessionStore _session;
   bool _pending = false;
+  bool _verification = false;
   String? _token;
   int? _origin;
   int _revision = 0;
 
   bool get hasPending => _pending;
+  bool get isVerification => _verification;
   String? get token => _token;
   int get revision => _revision;
 
@@ -57,7 +59,8 @@ class RecoveryLinkController extends ChangeNotifier
     } catch (_) {
       return false;
     }
-    if (uri == null || uri.path != '/reset-password') return false;
+    if (uri == null || !const {'/reset-password', '/v1/auth/verify'}.contains(uri.path)) return false;
+    final verification = uri.path == '/v1/auth/verify';
     String? token;
     try {
       final values = uri.queryParametersAll['token'];
@@ -66,13 +69,14 @@ class RecoveryLinkController extends ChangeNotifier
           !uri.hasFragment &&
           uri.queryParametersAll.length == 1 &&
           values?.length == 1 &&
-          RegExp(r'^[A-Za-z0-9_-]{20,256}$').hasMatch(values!.single)) {
+          (verification ? RegExp(r'^[A-Za-z0-9_-]{32}$') : RegExp(r'^[A-Za-z0-9_-]{20,256}$')).hasMatch(values!.single)) {
         token = values.single;
       }
     } catch (_) {
       // A malformed recovery URI opens a neutral invalid-link state.
     }
     _pending = true;
+    _verification = verification;
     _token = token;
     _origin = _session.isBootstrapping ? null : _session.generation;
     _revision++;
@@ -91,6 +95,7 @@ class RecoveryLinkController extends ChangeNotifier
 
   void dismiss() {
     _pending = false;
+    _verification = false;
     _token = null;
     _origin = null;
     _revision++;

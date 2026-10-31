@@ -14,9 +14,10 @@ class MainActivity: FlutterActivity() {
     private fun takeRecovery(source: Intent?) {
         if (source?.action == Intent.ACTION_VIEW) {
             val uri = source.data
-            if (uri?.path == "/reset-password") {
+            val path = uri?.path
+            if (path == "/reset-password" || path == "/v1/auth/verify") {
                 val text = uri.toString()
-                pending = if (text.length <= 4096) text else "/reset-password"
+                pending = if (text.length <= 4096) text else path
                 // Only consumed recovery ingress is sanitized before super.
                 // Other intents remain intact for the platform and plugins.
                 source.data = null

@@ -24,6 +24,16 @@ class Env {
   }
   static bool get localAi => p3 || p1;
 
+  static bool get p4 {
+    if (!const bool.fromEnvironment('EMIE_P4')) return false;
+    if (!localDebug || kIsWeb || defaultTargetPlatform != TargetPlatform.android ||
+        localHost != '10.0.2.2' || localPort != 8011 || !offline ||
+        const bool.fromEnvironment('EMIE_P1') || const bool.fromEnvironment('EMIE_P3')) {
+      throw StateError('P4 requires exclusive offline Android auth at 10.0.2.2:8011');
+    }
+    return true;
+  }
+
   static const bool localRequested = bool.fromEnvironment('EMIE_LOCAL');
   static bool get localDebug {
     // Validate an explicit device target even if EMIE_LOCAL was accidentally omitted.
@@ -98,6 +108,7 @@ class Env {
   }
 
   static String get apiBaseUrl {
+    p4;
     p3; // Reject inconsistent P3 targets before any HTTP client is constructed.
     return localDebug
       ? 'http://$localHost:$localPort'
