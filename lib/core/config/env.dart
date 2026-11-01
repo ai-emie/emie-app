@@ -5,10 +5,30 @@
 
 import 'package:flutter/foundation.dart';
 import 'local_debug_target.dart';
+import 'public_target.dart';
 
 enum EmieEnv { dev, prod }
 
 class Env {
+  static const String publicApiOrigin = String.fromEnvironment('EMIE_API_ORIGIN');
+  static bool get publicRequested =>
+      const bool.fromEnvironment('EMIE_PUBLIC') ||
+      publicApiOrigin.isNotEmpty ||
+      const ['prod', 'production'].contains(_envRaw.trim().toLowerCase()) ||
+      current == EmieEnv.prod;
+  static PublicTarget? get publicTarget => publicRequested
+      ? resolvePublicTarget(
+          apiOrigin: publicApiOrigin,
+          recoveryOrigin: recoveryOrigin,
+          environment: _envRaw.trim().toLowerCase(),
+          localMode: localRequested ||
+              const bool.fromEnvironment('EMIE_LOCAL_DEVICE') ||
+              const String.fromEnvironment('EMIE_LOCAL_DEVICE_HOST').isNotEmpty ||
+              const bool.fromEnvironment('EMIE_OFFLINE') ||
+              const bool.fromEnvironment('EMIE_P1') ||
+              const bool.fromEnvironment('EMIE_P3') ||
+              const bool.fromEnvironment('EMIE_P4'))
+      : null;
   static bool get offline =>
       localDebug && const bool.fromEnvironment('EMIE_OFFLINE');
   static bool get p1 => localDebug && const bool.fromEnvironment('EMIE_P1');
@@ -62,13 +82,14 @@ class Env {
       String.fromEnvironment('EMIE_RECOVERY_ORIGIN');
 
   static bool allowsRecoveryOrigin(Uri uri) {
+    final public = publicTarget;
     if (!uri.hasScheme && !uri.hasAuthority) return true;
     if (localDebug) {
       return uri.scheme == 'http' &&
           uri.host == localHost &&
           uri.port == localPort;
     }
-    final allowed = Uri.tryParse(recoveryOrigin);
+    final allowed = Uri.tryParse(public?.recoveryOrigin ?? recoveryOrigin);
     return allowed != null &&
         allowed.scheme == 'https' &&
         allowed.host.isNotEmpty &&
@@ -85,8 +106,6 @@ class Env {
   // ===========================================================
 
   static const String _devBaseUrl = "http://10.0.2.2:8000";
-  static const String _prodBaseUrl =
-      "https://emie-backend-production.up.railway.app";
 
   /// Compile-time override:
   /// flutter run/build --dart-define=EMIE_ENV=prod
@@ -108,13 +127,13 @@ class Env {
   }
 
   static String get apiBaseUrl {
+    final public = publicTarget;
     p4;
     p3; // Reject inconsistent P3 targets before any HTTP client is constructed.
+    if (public != null) return public.apiOrigin;
     return localDebug
       ? 'http://$localHost:$localPort'
-      : current == EmieEnv.prod
-          ? _prodBaseUrl
-          : _devBaseUrl;
+      : _devBaseUrl;
   }
 
   // ===========================================================

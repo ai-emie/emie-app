@@ -30,9 +30,29 @@ void main() {
       expect(Env.apiBaseUrl, base);
     }
     links.dismiss();
-    for (final path in ['/reset-password/','/other','/v1/auth/verify']) {
+    for (final path in ['/reset-password/','/other','/v1/auth/verify/']) {
       expect(links.acceptRoute('${Env.recoveryOrigin}$path?token=$proof'), isFalse);
       expect(links.hasPending, isFalse);
+    }
+  });
+
+  test('existing verification ingress keeps its separate proof contract', () {
+    final links = RecoveryLinkController(initialRoute: '/');
+    addTearDown(links.dispose);
+    const verifyProof = 'synthetic_verify_proof_123456789';
+    expect(verifyProof.length, 32);
+    expect(links.acceptRoute('${Env.recoveryOrigin}/v1/auth/verify?token=$verifyProof'), isTrue);
+    expect(links.isVerification, isTrue);
+    expect(links.token, verifyProof);
+    for (final route in [
+      '${Env.recoveryOrigin}/v1/auth/verify',
+      '${Env.recoveryOrigin}/v1/auth/verify?token=$proof',
+      '${Env.recoveryOrigin}/v1/auth/verify?token=$verifyProof&token=$verifyProof',
+      'https://other.example:8443/v1/auth/verify?token=$verifyProof',
+    ]) {
+      expect(links.acceptRoute(route), isTrue);
+      expect(links.isVerification, isTrue);
+      expect(links.token, isNull);
     }
   });
 }

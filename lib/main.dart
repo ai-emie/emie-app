@@ -15,6 +15,7 @@ Future<void> main() async {
   if (Env.localRequested && !kDebugMode) {
     throw StateError('EMIE_LOCAL requires a debug build.');
   }
+  Env.apiBaseUrl; // Reject incomplete public targets before session/client startup.
 
   await SessionStore.instance.loadPreferences();
 
