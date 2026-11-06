@@ -11,6 +11,8 @@ class ChatRepository {
   ChatRepository({ChatApi? api}) : _api = api ?? ChatApi();
 
   final ChatApi _api;
+  Future<Map<String, dynamic>> actionStatus(String id) => _api.actionStatus(id);
+  Future<List<Map<String, dynamic>>> sessionActions(String id) => _api.sessionActions(id);
 
     // ------------------------------
     // Daily Welcome
@@ -25,6 +27,7 @@ class ChatRepository {
   Future<ChatMessage> sendUserMessage({
     required String text,
     required String chatSessionId,
+    String? actionId,
     String provider = 'openai',
     int maxTokens = 400,
     double temperature = 0.3,
@@ -32,6 +35,7 @@ class ChatRepository {
     return _api.sendMessage(
       text: text,
       chatSessionId: chatSessionId,
+      actionId: actionId,
       provider: provider,
       maxTokens: maxTokens,
       temperature: temperature,

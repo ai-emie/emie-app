@@ -17,7 +17,10 @@ class PendingRepository extends ChatRepository {
   final pending = Completer<ChatMessage>();
   int calls = 0;
   @override
-  Future<ChatMessage> sendUserMessage({required String text, required String chatSessionId,
+  Future<List<Map<String, dynamic>>> sessionActions(String id) async => [];
+
+  @override
+  Future<ChatMessage> sendUserMessage({required String text, required String chatSessionId, String? actionId,
       String provider = 'openai', int maxTokens = 400, double temperature = .3}) {
     calls++;
     return pending.future;

@@ -35,11 +35,21 @@ class ApiError implements Exception {
 
     final data = e.response?.data;
     final detail = data is Map ? data['detail'] : null;
-    final rawCode = detail is Map ? detail['code'] : null;
+    final rawCode = detail is Map ? detail['code'] : (data is Map ? data['code'] : null);
     // Both explicit local modes share fixed messages, never server-supplied prose.
     final code = rawCode is String && rawCode.startsWith('P3_')
         ? 'P1_${rawCode.substring(3)}' : rawCode;
     const localMessages = <String, String>{
+      'AI_BUDGET': 'Das KI-Kostenlimit ist erreicht oder nicht freigegeben.',
+      'AI_AI_DISABLED': 'KI-Antworten sind derzeit ausgeschaltet.',
+      'AI_PRICING': 'Für diese Anfrage ist keine sichere Kostenbewertung freigegeben.',
+      'AI_PROVIDER': 'Der KI-Anbieter konnte keine bestätigte Antwort liefern.',
+      'AI_LIMIT': 'Die Antwort wurde innerhalb der freigegebenen Grenzen nicht bestätigt.',
+      'AI_UNCERTAIN': 'Ausgang unklar. Status oder Verlauf prüfen; nicht erneut senden.',
+      'AI_IN_PROGRESS': 'Nachricht in Bearbeitung oder Ausgang noch unklar. Status prüfen.',
+      'AI_STORAGE': 'Vorgang nicht sicher gespeichert. Status prüfen; nicht erneut senden.',
+      'AI_ACTION_CONFLICT': 'Diese Anfrage-ID gehört zu einer anderen Nachricht.',
+      'AI_ACTION_REQUIRED': 'Bitte den Chatclient aktualisieren.',
       'P1_BUDGET': 'Lokales Entwicklungskontingent erreicht. Keine automatische Erhöhung.',
       'P1_AUTH': 'OpenAI-Schlüssel abgelehnt oder Berechtigung fehlt. Lokalen Status prüfen.',
       'P1_MODEL': 'Das OpenAI-Modell ist für diesen Schlüssel nicht verfügbar.',

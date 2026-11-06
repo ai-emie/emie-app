@@ -247,7 +247,10 @@ class _ChatViewState extends State<ChatScreen> {
                       ? _t(context, de: 'Historie nicht aktuell. Bitte neu laden.', en: 'History is not up to date. Please reload.')
                       : chat.error == 'chat_open_failed'
                         ? _t(context, de: 'Gespräch konnte nicht geöffnet werden. Bitte erneut versuchen.', en: 'Could not open conversation. Please try again.')
-                        : Env.localAi ? chat.error! : _t(context, de: 'Vorgang nicht bestätigt. Bitte die Historie neu laden.', en: 'Operation unconfirmed. Please reload history.'))),
+                        : chat.error!)),
+                  if (chat.hasPendingAction) TextButton(
+                    onPressed: chat.isSending ? null : chat.checkPendingAction,
+                    child: Text(_t(context, de: 'Antwortstatus prüfen', en: 'Check response status'))),
                   if (_uiHint != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -269,7 +272,7 @@ class _ChatViewState extends State<ChatScreen> {
                       ),
                     ),
                   ChatInputBar(
-                    enabled: !Env.offline && (!Env.p3 || _p3Ready) && !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
+                    enabled: !chat.hasPendingAction && !Env.offline && (!Env.p3 || _p3Ready) && !chat.isSending && !chat.isLoadingHistory && !chat.isDeleting,
                     controller: _textController,
                     onSend: () => _send(context),
                     onSnack: (_) {},

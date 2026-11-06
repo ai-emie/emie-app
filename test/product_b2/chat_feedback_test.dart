@@ -38,9 +38,12 @@ class FeedbackRepository extends ChatRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> sessionActions(String id) async => [];
+
+  @override
   Future<ChatMessage> sendUserMessage(
       {required String text,
-      required String chatSessionId,
+      required String chatSessionId, String? actionId,
       String provider = 'openai',
       int maxTokens = 400,
       double temperature = .3}) async {

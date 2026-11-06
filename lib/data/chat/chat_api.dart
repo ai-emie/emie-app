@@ -4,9 +4,9 @@
 // ===============================================
 
 import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../api/client.dart';
-import '../../core/config/env.dart';
 import 'chat_models.dart';
 import 'chat_session_models.dart';
 
@@ -14,6 +14,19 @@ class ChatApi {
   ChatApi({Dio? dio}) : _dio = dio ?? ApiClient().dio;
 
   final Dio _dio;
+
+  Future<Map<String, dynamic>> actionStatus(String id) async {
+    final response = await _dio.get('/v1/chat/actions/$id');
+    if (response.data is! Map<String, dynamic>) throw const FormatException('Invalid action status');
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> sessionActions(String id) async {
+    final response = await _dio.get('/v1/chat/sessions/$id/actions');
+    final data = response.data;
+    if (data is! Map || data['items'] is! List) throw const FormatException('Invalid action history');
+    return (data['items'] as List).cast<Map<String, dynamic>>();
+  }
 
   // ==========================================================
   //  HISTORY: Sessions (User scoped via Bearer Token)
@@ -147,6 +160,7 @@ class ChatApi {
   Future<ChatMessage> sendMessage({
     required String text,
     required String chatSessionId,
+    String? actionId,
     String provider = 'openai',
     int maxTokens = 400,
     double temperature = 0.3,
@@ -167,11 +181,11 @@ class ChatApi {
 
     final res = await _dio.post(
       '/v1/chat/respond',
-      options: Env.localAi
-          ? ApiClient.sessionOptions(null, noRefresh: true).copyWith(
-              receiveTimeout: const Duration(seconds: 70))
-          : null,
+      // Never replay a paid POST during token refresh, even with an action ID.
+      options: ApiClient.sessionOptions(null, noRefresh: true).copyWith(
+          receiveTimeout: const Duration(seconds: 70)),
       data: {
+        'action_id': actionId ?? const Uuid().v4(),
         'message': trimmed,
         'provider': provider,
         'max_tokens': maxTokens,

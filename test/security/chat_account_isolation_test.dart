@@ -216,6 +216,7 @@ void main() {
         final gate = Completer<void>();
         old.repository.gate = gate.future;
         final future = _start(old, operation);
+        await tester.pump(); // Let durable-ID persistence finish before the in-flight response.
         if (operation == _Operation.send) expect(old.isSending, isTrue);
         if (operation == _Operation.list || operation == _Operation.open) {
           expect(old.isLoadingHistory, isTrue);
@@ -298,6 +299,60 @@ void main() {
     _expectFresh(factory.current, 'A-session');
   });
 
+  testWidgets('real chat shows budget and uncertain states without a false assistant reply', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var code = 'AI_BUDGET';
+    var sends = 0, checks = 0;
+    Map<String, dynamic>? action;
+    _installAdapter((options) {
+      if (options.path == '/v1/chat/respond') {
+        sends++;
+        action = Map<String, dynamic>.from(options.data as Map);
+        return _json({'ok': false, 'code': code, 'message': 'untrusted-provider-text'}, status: 503);
+      }
+      if (options.path.startsWith('/v1/chat/actions/')) {
+        checks++;
+        expect(options.path, '/v1/chat/actions/${action!['action_id']}');
+        return _json({'state': 'uncertain', 'session_id': action!['chat_session_id'], 'result': null});
+      }
+      if (options.path == '/v1/get-daily-welcome') return _json({'message': ''});
+      if (options.path == '/v1/home/summary') return _json({
+        'user_stats': {'total_memories': 0, 'memories_today': 0, 'total_projects': 0},
+        'recent_project': null, 'recent_memory': null, 'generated_at': '2026-11-06T00:00:00Z'});
+      if (['/v1/chat/sessions', '/v1/memory/list', '/v1/projects'].contains(options.path)) {
+        return _json({'items': [], 'total_items': 0, 'offset': 0, 'limit': 20});
+      }
+      throw StateError('Unexpected test request');
+    });
+    await tester.pumpWidget(const EmieApp());
+    addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+    await tester.pumpAndSettle();
+    _login(_userA);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.chat_bubble_outline_rounded));
+    await tester.pumpAndSettle();
+    final chat = tester.element(find.byType(ChatScreen)).read<ChatController>();
+    await tester.runAsync(() => chat.send('Synthetic budget request'));
+    await tester.pumpAndSettle();
+    expect(find.text('Das KI-Kostenlimit ist erreicht oder nicht freigegeben.'), findsOneWidget);
+    expect(chat.hasPendingAction, false);
+    expect(chat.messages.where((m) => m.role == 'assistant'), isEmpty);
+    code = 'AI_UNCERTAIN';
+    await tester.runAsync(() => chat.send('Synthetic uncertain request'));
+    await tester.pumpAndSettle();
+    expect(chat.hasPendingAction, true);
+    expect(find.text('Antwortstatus prüfen'), findsOneWidget);
+    expect(find.text('untrusted-provider-text'), findsNothing);
+    await tester.tap(find.text('Antwortstatus prüfen'));
+    await tester.pumpAndSettle();
+    expect(sends, 2); expect(checks, 1);
+    expect(chat.messages.where((m) => m.role == 'assistant'), isEmpty);
+    expect(chat.lastSendConfirmed, false);
+  });
+
   testWidgets('real app: MainShell, Home, Chat and History share auth lifetime',
       (tester) async {
     tester.view.physicalSize = const Size(1200, 1000);
@@ -324,6 +379,8 @@ void main() {
             'recent_project': null, 'recent_memory': null, 'generated_at': '2026-09-30T00:00:00Z'});
         case '/v1/get-daily-welcome':
           return _json({'message': '$account daily welcome'});
+        case '/v1/chat/sessions/A-session/actions':
+          return _json({'items': []});
         case '/v1/chat/sessions/A-session':
           return _json({
             'messages': [
@@ -534,6 +591,8 @@ Future<dynamic> _start(ChatController controller, _Operation operation) {
 }
 
 class _FakeChatRepository implements ChatRepository {
+  @override
+  Future<Map<String, dynamic>> actionStatus(String id) async => throw StateError("No pending action in this fixture");
   Future<void>? gate;
   List<ChatSession> sessions = [];
   List<ChatMessage> messages = [];
@@ -569,9 +628,12 @@ class _FakeChatRepository implements ChatRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> sessionActions(String id) async => [];
+
+  @override
   Future<ChatMessage> sendUserMessage({
     required String text,
-    required String chatSessionId,
+    required String chatSessionId, String? actionId,
     String provider = 'openai',
     int maxTokens = 400,
     double temperature = 0.3,
