@@ -29,7 +29,7 @@ try {
     $env:GRADLE_OPTS = '-Dorg.gradle.jvmargs=-Xmx3G -Dorg.gradle.workers.max=2 -Dorg.gradle.daemon=false'
     Push-Location -LiteralPath $PSScriptRoot
     try {
-        $localMode = if ($Development -eq 'KI') { @('--dart-define=EMIE_P3=true') } elseif ($Development -eq 'Auth') { @('--dart-define=EMIE_OFFLINE=true','--dart-define=EMIE_P4=true') } else { @('--dart-define=EMIE_OFFLINE=true') }
+        [string[]]$localMode = if ($Development -eq 'KI') { @('--dart-define=EMIE_P3=true') } elseif ($Development -eq 'Auth') { @('--dart-define=EMIE_OFFLINE=true','--dart-define=EMIE_P4=true') } else { @('--dart-define=EMIE_OFFLINE=true') }
         & $flutter run --debug --no-pub -d $DeviceId --dart-define=EMIE_LOCAL=true --dart-define=EMIE_LOCAL_PORT=8011 @localMode --vmservice-out-file=.dart_tool/p2-vm-service.json
         $result = $LASTEXITCODE
     } finally { Pop-Location }
