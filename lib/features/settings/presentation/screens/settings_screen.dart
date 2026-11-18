@@ -9,8 +9,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../state/session_store.dart';
 import '../../../auth/controller/auth_controller.dart';
+import 'help_feedback_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -308,6 +310,22 @@ class SettingsScreen extends StatelessWidget {
                   _VersionTile(
                     title: t.version,
                     colors: c,
+                  ),
+
+                  _Divider(
+                    colors: c,
+                  ),
+
+                  _ActionTile(
+                    icon: Icons.help_outline_rounded,
+                    title: context.l10n.feedbackTitle,
+                    subtitle: context.l10n.feedbackEntry,
+                    colors: c,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HelpFeedbackScreen(),
+                      ),
+                    ),
                   ),
 
                   _Divider(

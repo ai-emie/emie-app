@@ -67,6 +67,35 @@ class AppLocalizations {
       'version': 'Version',
       'built_by': 'Gemeinsam gebaut von Mensch & KI.',
 
+      // Beta help: only this blank template and installed version leave the app.
+      'feedback_title': 'Hilfe & Feedback',
+      'feedback_entry': 'Fragen oder Fehler in der Beta melden',
+      'feedback_contact': 'Vorläufiger Beta-Kontakt',
+      'feedback_intro': 'Brauchst du Hilfe oder möchtest du einen Fehler melden? '
+          'Die installierte Version und Schritte zum Nachstellen helfen uns.',
+      'feedback_privacy': 'Bitte keine Passwörter, API-Schlüssel, '
+          'Bestätigungs-/Resetlinks oder vertraulichen Inhalte mitschicken.',
+      'feedback_draft_hint': 'Es wird nur ein Mailentwurf mit der Vorlage '
+          'vorbereitet. Du ergänzt und prüfst ihn und sendest selbst. '
+          'Kontodaten, App-Inhalte und Anhänge werden nicht automatisch ergänzt.',
+      'feedback_prepare': 'E-Mail vorbereiten',
+      'feedback_copy_address': 'Kontaktadresse kopieren',
+      'feedback_copy_template': 'Vorlage kopieren',
+      'feedback_template_title': 'Fehlervorlage',
+      'feedback_subject': 'Emie Beta – Hilfe & Feedback',
+      'feedback_version': 'Appversion / Buildnummer',
+      'feedback_version_manual': '[bitte selbst ergänzen]',
+      'feedback_questions': 'Was wollte ich tun?\n\nWas ist passiert?\n\n'
+          'Was hätte passieren sollen?\n\nWelche Schritte führen zum Problem?',
+      'feedback_mail_opened': 'Mailprogramm aufgerufen. Bitte prüfe den Entwurf '
+          'und sende ihn selbst.',
+      'feedback_mail_unavailable': 'Es konnte kein Mailprogramm geöffnet werden. '
+          'Kopiere die Kontaktadresse und die Vorlage und füge sie in dein Postfach ein.',
+      'feedback_address_copied': 'Kontaktadresse kopiert.',
+      'feedback_template_copied': 'Vorlage kopiert.',
+      'feedback_copy_failed': 'Kopieren nicht möglich. Du kannst den Text '
+          'direkt markieren und manuell übernehmen.',
+
       // Chat
       'ask_emie': 'Frag Emie etwas…',
       'plus': 'Plus',
@@ -117,6 +146,34 @@ class AppLocalizations {
       // About
       'version': 'Version',
       'built_by': 'Built together by human & AI.',
+
+      'feedback_title': 'Help & feedback',
+      'feedback_entry': 'Ask a question or report a beta issue',
+      'feedback_contact': 'Temporary beta contact',
+      'feedback_intro': 'Need help or want to report a problem? '
+          'Your installed version and steps to reproduce the issue help us.',
+      'feedback_privacy': 'Please do not include passwords, API keys, '
+          'verification/reset links or confidential content.',
+      'feedback_draft_hint': 'Only an email draft with the template is prepared. '
+          'You fill it in, review it and send it yourself. Account details, '
+          'app content and attachments are not added automatically.',
+      'feedback_prepare': 'Prepare email',
+      'feedback_copy_address': 'Copy contact address',
+      'feedback_copy_template': 'Copy template',
+      'feedback_template_title': 'Issue template',
+      'feedback_subject': 'Emie Beta – Help & feedback',
+      'feedback_version': 'App version / build number',
+      'feedback_version_manual': '[please fill in]',
+      'feedback_questions': 'What was I trying to do?\n\nWhat happened?\n\n'
+          'What should have happened?\n\nWhat steps reproduce the problem?',
+      'feedback_mail_opened': 'Mail app opened. Please review the draft '
+          'and send it yourself.',
+      'feedback_mail_unavailable': 'No mail app could be opened. Copy the '
+          'contact address and template and paste them into your mailbox.',
+      'feedback_address_copied': 'Contact address copied.',
+      'feedback_template_copied': 'Template copied.',
+      'feedback_copy_failed': 'Could not copy. You can select the text '
+          'and copy it manually.',
 
       // Chat
       'ask_emie': 'Ask Emie…',
@@ -177,6 +234,29 @@ class AppLocalizations {
   // About
   String get version => _t('version');
   String get builtBy => _t('built_by');
+
+  // Beta help / feedback
+  String get feedbackTitle => _t('feedback_title');
+  String get feedbackEntry => _t('feedback_entry');
+  String get feedbackContact => _t('feedback_contact');
+  String get feedbackIntro => _t('feedback_intro');
+  String get feedbackPrivacy => _t('feedback_privacy');
+  String get feedbackDraftHint => _t('feedback_draft_hint');
+  String get feedbackPrepare => _t('feedback_prepare');
+  String get feedbackCopyAddress => _t('feedback_copy_address');
+  String get feedbackCopyTemplate => _t('feedback_copy_template');
+  String get feedbackTemplateTitle => _t('feedback_template_title');
+  String get feedbackSubject => _t('feedback_subject');
+  String get feedbackMailOpened => _t('feedback_mail_opened');
+  String get feedbackMailUnavailable => _t('feedback_mail_unavailable');
+  String get feedbackAddressCopied => _t('feedback_address_copied');
+  String get feedbackTemplateCopied => _t('feedback_template_copied');
+  String get feedbackCopyFailed => _t('feedback_copy_failed');
+
+  String feedbackTemplate(String? installedVersion) =>
+      '${_t('feedback_version')}: '
+      '${installedVersion ?? _t('feedback_version_manual')}\n\n'
+      '${_t('feedback_questions')}';
 
   // Chat
   String get askEmie => _t('ask_emie');
